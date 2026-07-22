@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.idsm.policy.v1
+mode: bounded-normalizer
+max_records: 256
+aggregation_window_ms: 1000
+rate_limit:
+  per_key_count: 10
+  window_ms: 1000
+privacy_mode: redact-principal
+forwarding:
+  backend_forwarding_enabled: false
+  forwarding_threshold: critical
+  staged_queue: true
+sources:
+  - kernel-audit
+  - communication
+  - authentication
+  - update
+  - diagnostics
+  - firewall
+  - health-manager
+  - application
+audit:
+  record_dropped_events: true
+  record_throttled_events: true
+  record_forwarding_decisions: true
+unsupported:
+  live_kernel_audit_adapter: deferred
+  remote_ids_backend: deferred

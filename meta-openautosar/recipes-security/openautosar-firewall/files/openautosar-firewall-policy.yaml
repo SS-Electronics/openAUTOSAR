@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.firewall.policy.v1
+mode: staged-command-generation
+backend: nftables
+default_ingress: deny
+default_egress: deny
+require_default_deny: true
+allow_loopback: true
+max_rules: 128
+authorization: iam
+allowed_interfaces:
+  - lo
+  - tap-openautosar0
+rules:
+  - rule_id: ultrasonic-someip-sd
+    direction: ingress
+    action: allow
+    protocol: udp
+    interface: tap-openautosar0
+    source_cidr: 10.10.0.0/24
+    destination_cidr: 10.10.0.2/32
+    destination_port: 30490
+    service_instance: ultrasonic-service
+    priority: 10
+    audit: true
+  - rule_id: ultrasonic-dds-rtps
+    direction: ingress
+    action: allow
+    protocol: udp
+    interface: tap-openautosar0
+    source_cidr: 10.10.0.0/24
+    destination_cidr: 10.10.0.2/32
+    destination_port: 7400
+    service_instance: ultrasonic-service
+    priority: 20
+    audit: true
+audit:
+  record_rule_install: true
+  record_authorization_failure: true
+unsupported:
+  live_host_firewall_mutation_in_unit_tests: deferred
+  hardware_network_namespace_backend: deferred

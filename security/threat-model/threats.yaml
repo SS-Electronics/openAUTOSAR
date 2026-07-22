@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.security.threat-model.v1
+profile: qemu-x86_64
+status: draft-controlled
+surfaces:
+  - id: model-import
+    surface: ARXML and model import
+    primary_risks:
+      - malformed input triggers generator failure
+      - spoofed model source changes generated interfaces
+    controls:
+      - schema validation before generation
+      - deterministic generator output comparison
+  - id: generated-code
+    surface: generated code and templates
+    primary_risks:
+      - template drift changes public API
+      - generated output is edited manually
+    controls:
+      - generated file markers
+      - traceability manifest
+  - id: manifests
+    surface: execution, service, and machine manifests
+    primary_risks:
+      - invalid identity or resource policy
+      - unsafe state transition
+    controls:
+      - manifest validators
+      - state-management policy checks
+  - id: local-ipc
+    surface: local IPC
+    primary_risks:
+      - unauthorized peer connects to service
+      - oversized payload consumes resources
+    controls:
+      - peer security label verification
+      - bounded message queues
+  - id: someip
+    surface: SOME/IP
+    primary_risks:
+      - malformed frame
+      - replayed or unexpected event
+    controls:
+      - message parser validation
+      - E2E profile checks
+  - id: service-discovery
+    surface: service discovery
+    primary_risks:
+      - spoofed service offer
+      - service flapping
+    controls:
+      - IAM-gated registry operations
+      - service TTL and stale lease handling
+  - id: dds
+    surface: DDS
+    primary_risks:
+      - unsupported RTPS submessage
+      - unbounded discovery input
+    controls:
+      - subset parser rejection
+      - binding capability matrix
+  - id: diagnostics
+    surface: diagnostics
+    primary_risks:
+      - unauthorized security access
+      - DTC clearing without audit
+    controls:
+      - tester authorization policy
+      - IDSM security events
+  - id: update-transfer
+    surface: update transfer
+    primary_risks:
+      - unsigned or stale package
+      - missing provenance
+    controls:
+      - crypto-provider signature policy
+      - package manifest validation
+  - id: package-activation
+    surface: package activation
+    primary_risks:
+      - interrupted activation
+      - rollback failure
+    controls:
+      - RAUC A/B activation policy
+      - coordinated rollback audit
+  - id: persistency
+    surface: persistency
+    primary_risks:
+      - cross-service key access
+      - corrupt persisted value
+    controls:
+      - key-prefix enforcement
+      - corruption recovery tests
+  - id: log-collection
+    surface: log collection
+    primary_risks:
+      - secret leakage in logs
+      - unbounded support bundle
+    controls:
+      - debug bundle redaction
+      - bounded log excerpts
+  - id: external-backend
+    surface: external backend
+    primary_risks:
+      - remote route misuse
+      - unavailable backend
+    controls:
+      - API gateway route policy
+      - network firewall policy
+  - id: development-ci
+    surface: development CI
+    primary_risks:
+      - untrusted workload on controller
+      - missing quality gate
+    controls:
+      - shared-library CI contract
+      - isolated agent labels
+  - id: signing-system
+    surface: signing system
+    primary_risks:
+      - signing key disclosure
+      - unauthorized release
+    controls:
+      - key-slot policy
+      - release approval checklist

@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-delivery.profile.v1
+profile_id: bosch-supplier
+base_profile: generic-supplier
+status: template-only
+confidential_workflow: false
+requires_authorized_project_contract: true
+description: Configurable Bosch supplier adapter placeholder.
+
+adapter_scope:
+  - naming rule overrides
+  - input contract schema binding
+  - ARXML mapping declarations
+  - delivery layout aliases
+  - project quality gate thresholds
+
+constraints:
+  no_reverse_engineering: true
+  no_confidential_process_claims: true
+  configured_from_actual_project_requirements: true

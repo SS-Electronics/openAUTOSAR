@@ -1,0 +1,83 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "host-dev",
+      "displayName": "Host development build",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/out/build/host-dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OA_BUILD_TESTS": "ON",
+        "OA_ENABLE_SANITIZERS": "ON",
+        "OA_ENABLE_LINK_MAPS": "ON",
+        "OA_WARNINGS_AS_ERRORS": "OFF"
+      }
+    },
+    {
+      "name": "qemu-x86_64-dev",
+      "displayName": "QEMU x86-64 development build",
+      "inherits": "host-dev",
+      "binaryDir": "${sourceDir}/out/build/qemu-x86_64-dev",
+      "toolchainFile": "${sourceDir}/build/toolchains/qemu-x86_64.cmake"
+    },
+    {
+      "name": "host-release",
+      "displayName": "Host release build",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/out/build/host-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "OA_BUILD_TESTS": "ON",
+        "OA_ENABLE_SANITIZERS": "OFF",
+        "OA_ENABLE_LINK_MAPS": "ON",
+        "OA_WARNINGS_AS_ERRORS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "host-dev",
+      "configurePreset": "host-dev",
+      "jobs": 2
+    },
+    {
+      "name": "qemu-x86_64-dev",
+      "configurePreset": "qemu-x86_64-dev",
+      "jobs": 2
+    },
+    {
+      "name": "host-release",
+      "configurePreset": "host-release",
+      "jobs": 2
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host-dev",
+      "configurePreset": "host-dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "qemu-x86_64-dev",
+      "configurePreset": "qemu-x86_64-dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "host-release",
+      "configurePreset": "host-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

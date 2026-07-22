@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-delivery-layout.v1
+profile_id: bosch-supplier
+base_profile: generic-supplier
+status: template-only
+
+layout_policy:
+  source: authorized-project-contract
+  confidential_workflow: false
+  required_base_sections:
+    - 00-cover
+    - 10-model
+    - 20-software
+    - 30-manifests
+    - 40-build
+    - 50-quality
+    - 60-safety-security
+    - 70-compliance
+    - 80-integration

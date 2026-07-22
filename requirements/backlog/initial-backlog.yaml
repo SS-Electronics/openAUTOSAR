@@ -1,0 +1,239 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.initial-backlog.v1
+status: active
+epics:
+  - id: EPIC-01
+    title: Requirements and legal baseline
+    items:
+      - id: EPIC-01-001
+        title: R22-11 document and work-product inventory
+      - id: EPIC-01-002
+        title: R25-11 forward-delta inventory without scope change
+      - id: EPIC-01-003
+        title: Requirements import and traceability formats
+      - id: EPIC-01-004
+        title: Source-reference and clean-room policy
+      - id: EPIC-01-005
+        title: AUTOSAR legal review package
+      - id: EPIC-01-006
+        title: Working-name risk acceptance
+  - id: EPIC-02
+    title: Developer platform
+    items:
+      - id: EPIC-02-001
+        title: Repository skeleton
+      - id: EPIC-02-002
+        title: Build containers
+      - id: EPIC-02-003
+        title: CMake presets
+      - id: EPIC-02-004
+        title: Python tooling package
+      - id: EPIC-02-005
+        title: Coding standard
+      - id: EPIC-02-006
+        title: Jenkinsfile and shared CI library
+      - id: EPIC-02-007
+        title: Artifact store contract
+      - id: EPIC-02-008
+        title: QEMU x86-64 AGL test image path
+      - id: EPIC-02-009
+        title: Deterministic network-lab runner
+  - id: EPIC-03
+    title: AGL and virtual target layer
+    items:
+      - id: EPIC-03-001
+        title: AGL and Yocto pin
+      - id: EPIC-03-002
+        title: meta-openautosar layer
+      - id: EPIC-03-003
+        title: QEMU x86-64 development image
+      - id: EPIC-03-004
+        title: Platform bootstrap recipe
+      - id: EPIC-03-005
+        title: Test agent recipe
+      - id: EPIC-03-006
+        title: CI boot path
+      - id: EPIC-03-007
+        title: TAP bridge namespace vcan netem and capture orchestration
+      - id: EPIC-03-008
+        title: GPT virtual A/B rootfs and appfs layout
+      - id: EPIC-03-009
+        title: RAUC bundle pipeline
+  - id: EPIC-04
+    title: Ultrasonic and Classic simulation
+    items:
+      - id: EPIC-04-001
+        title: Deterministic ultrasonic model
+      - id: EPIC-04-002
+        title: Classic signal and PDU contract
+      - id: EPIC-04-003
+        title: SocketCAN encoder and decoder
+      - id: EPIC-04-004
+        title: Alive counter and E2E checks
+      - id: EPIC-04-005
+        title: Signal-to-service mapping
+      - id: EPIC-04-006
+        title: Fault scenarios
+      - id: EPIC-04-007
+        title: Reproducible scenario runner
+  - id: EPIC-05
+    title: Model toolchain
+    items:
+      - id: EPIC-05-001
+        title: R22-11 profile registry
+      - id: EPIC-05-002
+        title: Neutral intermediate representation
+      - id: EPIC-05-003
+        title: ARXML loader strategy
+      - id: EPIC-05-004
+        title: Schema and semantic validators
+      - id: EPIC-05-005
+        title: Manifest generator
+      - id: EPIC-05-006
+        title: Source traceability
+      - id: EPIC-05-007
+        title: Ultrasonic service model
+  - id: EPIC-06
+    title: Runtime core
+    items:
+      - id: EPIC-06-001
+        title: ara core subset
+      - id: EPIC-06-002
+        title: Configuration loader
+      - id: EPIC-06-003
+        title: Error domains
+      - id: EPIC-06-004
+        title: Log API
+      - id: EPIC-06-005
+        title: Runtime initialization
+  - id: EPIC-07
+    title: Execution and State Management
+    items:
+      - id: EPIC-07-001
+        title: Process launcher
+      - id: EPIC-07-002
+        title: Manifest loader
+      - id: EPIC-07-003
+        title: Process identity verification
+      - id: EPIC-07-004
+        title: cgroups and namespaces
+      - id: EPIC-07-005
+        title: State machine
+      - id: EPIC-07-006
+        title: Function Groups
+      - id: EPIC-07-007
+        title: CLI
+      - id: EPIC-07-008
+        title: Restart and degraded policies
+  - id: EPIC-08
+    title: Communication semantics and local IPC
+    items:
+      - id: EPIC-08-001
+        title: Generated service types
+      - id: EPIC-08-002
+        title: Proxy and skeleton
+      - id: EPIC-08-003
+        title: ara com semantic runtime
+      - id: EPIC-08-004
+        title: Service registry
+      - id: EPIC-08-005
+        title: Local IPC
+      - id: EPIC-08-006
+        title: Restart and backpressure tests
+  - id: EPIC-09
+    title: Original SOME/IP
+    items:
+      - id: EPIC-09-001
+        title: Message codec
+      - id: EPIC-09-002
+        title: Serialization
+      - id: EPIC-09-003
+        title: UDP transport implementation
+      - id: EPIC-09-004
+        title: TCP follow-on plan
+      - id: EPIC-09-005
+        title: Service discovery
+      - id: EPIC-09-006
+        title: Event groups
+      - id: EPIC-09-007
+        title: Request correlation
+      - id: EPIC-09-008
+        title: E2E hooks
+      - id: EPIC-09-009
+        title: Fuzz and packet-vector tests
+      - id: EPIC-09-010
+        title: Interoperability harness
+  - id: EPIC-10
+    title: DDS
+    items:
+      - id: EPIC-10-001
+        title: DDS deployment mapping
+      - id: EPIC-10-002
+        title: Type and topic generation
+      - id: EPIC-10-003
+        title: Event and method mapping
+      - id: EPIC-10-004
+        title: QoS profiles
+      - id: EPIC-10-005
+        title: Discovery and liveliness
+      - id: EPIC-10-006
+        title: Original RTPS codec
+      - id: EPIC-10-007
+        title: Original RTPS discovery
+      - id: EPIC-10-008
+        title: Original RTPS reliability and QoS plan
+      - id: EPIC-10-009
+        title: Interoperability tests
+  - id: EPIC-11
+    title: Dependability and diagnostics
+    items:
+      - id: EPIC-11-001
+        title: Supervision
+      - id: EPIC-11-002
+        title: Persistency
+      - id: EPIC-11-003
+        title: Fault injection
+      - id: EPIC-11-004
+        title: Degraded states
+      - id: EPIC-11-005
+        title: Ultrasonic diagnostic events and DTCs
+      - id: EPIC-11-006
+        title: UDS server
+      - id: EPIC-11-007
+        title: ISO-TP transport over SocketCAN vcan
+  - id: EPIC-12
+    title: Secure package and update
+    items:
+      - id: EPIC-12-001
+        title: Package schema
+      - id: EPIC-12-002
+        title: SBOM
+      - id: EPIC-12-003
+        title: Signature verification
+      - id: EPIC-12-004
+        title: RAUC backend adapter
+      - id: EPIC-12-005
+        title: Inactive-slot staging
+      - id: EPIC-12-006
+        title: Activation and health confirmation
+      - id: EPIC-12-007
+        title: Automatic A/B rollback
+      - id: EPIC-12-008
+        title: Power-loss recovery
+      - id: EPIC-12-009
+        title: Update evidence
+  - id: EPIC-13
+    title: OEM export
+    items:
+      - id: EPIC-13-001
+        title: Profile engine
+      - id: EPIC-13-002
+        title: Generic supplier bundle
+      - id: EPIC-13-003
+        title: Change and deviation report
+      - id: EPIC-13-004
+        title: Traceability export
+      - id: EPIC-13-005
+        title: Bosch profile discovery
+      - id: EPIC-13-006
+        title: Protocol captures and reproducibility manifest

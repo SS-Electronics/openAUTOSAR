@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+
+part /boot --source bootimg-pcbios --ondisk sda --label boot --active --align 1024 --size 64
+part / --source rootfs --ondisk sda --fstype=ext4 --label rootfs-a --align 1024 --size 2048
+part /rootfs-b --ondisk sda --fstype=ext4 --label rootfs-b --align 1024 --size 2048
+part /appfs-a --ondisk sda --fstype=ext4 --label appfs-a --align 1024 --size 512
+part /appfs-b --ondisk sda --fstype=ext4 --label appfs-b --align 1024 --size 512
+part /data --ondisk sda --fstype=ext4 --label data --align 1024 --size 512
+
+bootloader --ptable gpt

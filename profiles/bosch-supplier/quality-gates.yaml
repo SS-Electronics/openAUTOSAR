@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-quality-gates.v1
+profile_id: bosch-supplier
+base_profile: generic-supplier
+status: template-only
+
+quality_gate_policy:
+  source: authorized-project-contract
+  confidential_workflow: false
+  thresholds: project-defined
+  waivers: project-approved-only
+  release_approval: project-approved-only

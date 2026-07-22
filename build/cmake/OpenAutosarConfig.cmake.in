@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(OpenSSL REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/OpenAutosarTargets.cmake")

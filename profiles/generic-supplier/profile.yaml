@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-delivery.profile.v1
+profile_id: generic-supplier
+status: controlled-template
+confidential_workflow: false
+description: Vendor-neutral OEM and Tier-1 supplier delivery workflow.
+
+supplier_workflow:
+  - OEM Input Package
+  - Import and Validate
+  - Map to Internal Model
+  - Interface Freeze
+  - Generate
+  - Develop and Verify
+  - Integrate
+  - Package and Sign
+  - Vehicle/ECU Validation
+  - Supplier Delivery
+  - Issue Feedback
+  - Map
+
+import_pipeline:
+  - identify release/schema
+  - validate XML/schema
+  - normalize namespaces
+  - resolve references
+  - detect unsupported model elements
+  - compare with previous delivery
+  - generate a change report
+  - preserve source provenance
+  - create mapping decisions
+  - reject ambiguous destructive changes
+
+interface_freeze_scope:
+  - service interfaces
+  - data types
+  - versions
+  - service instance identifiers
+  - network endpoints
+  - process names
+  - Function Groups
+  - diagnostics IDs
+  - package dependencies
+  - machine resource allocation
+
+post_freeze_change_policy:
+  impact_report_required: true
+  destructive_change_default: reject-until-reviewed
+  approval_record: 70-compliance/approvals

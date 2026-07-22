@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.tool-confidence.v1
+status: controlled
+profile: qemu-x86_64
+tool_classes:
+  - development-only
+  - verification
+  - code-generator
+  - manifest-generator
+  - release-signing
+  - evidence-generator
+tools:
+  - id: cmake-build
+    class: development-only
+    owner: build-system
+    version_source: CMakePresets.json
+    approval_status: accepted-for-development
+  - id: oa-model-validator
+    class: verification
+    owner: model-toolchain
+    version_source: tools/oa_cli/__init__.py
+    approval_status: accepted-for-ci
+  - id: oa-model-generator
+    class: code-generator
+    owner: model-toolchain
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - model service descriptions
+      - release profile
+    outputs:
+      - generated proxy and skeleton headers
+      - generated service type headers
+      - generated traceability map
+    possible_tool_failures:
+      - malformed input accepted
+      - nondeterministic generated output
+      - generated API drifts from model
+    independent_validation:
+      - scripts/generate.sh validates model before generation
+      - tests/python/test_oa_cli_model.py checks determinism
+      - scripts/validate-api-abi.sh records public header baseline
+    test_suite:
+      - tests/python/test_oa_cli_model.py
+      - tests/unit/communication_test.cpp
+    version: source-controlled
+    reproducibility: deterministic-json-and-template-ordering
+    approval_status: accepted-for-mvp-generator
+  - id: oa-manifest-summary-generator
+    class: manifest-generator
+    owner: model-toolchain
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - validated model bundle
+    outputs:
+      - manifest-summary.json
+      - traceability/traceability.json
+    possible_tool_failures:
+      - missing generated service
+      - incorrect traceability link
+      - unstable output ordering
+    independent_validation:
+      - scripts/generate.sh
+      - tests/python/test_oa_cli_model.py
+      - oa trace export inspection
+    test_suite:
+      - tests/python/test_oa_cli_model.py
+      - tests/python/test_oa_cli_inspection.py
+    version: source-controlled
+    reproducibility: deterministic-sort-order
+    approval_status: accepted-for-mvp-manifest
+  - id: oa-oem-evidence-exporter
+    class: evidence-generator
+    owner: release-engineering
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - package root
+      - generated outputs
+      - test results
+      - validation evidence
+    outputs:
+      - manifest.json
+      - artifact-inventory.json
+      - sbom.spdx.json
+      - validation-summary.json
+    possible_tool_failures:
+      - required artifact omitted
+      - optional evidence not reported
+      - unstable SBOM output
+    independent_validation:
+      - tests/python/test_oa_cli_oem_export.py
+      - scripts/package.sh embedded export
+      - scripts/export-oem-bundle.sh standalone export
+    test_suite:
+      - tests/python/test_oa_cli_oem_export.py
+    version: source-controlled
+    reproducibility: sorted-artifacts-and-deterministic-created-time
+    approval_status: accepted-for-oem-pilot
+  - id: oa-debug-bundle-generator
+    class: evidence-generator
+    owner: supportability
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - machine deployment
+      - package root
+      - validation evidence
+      - bounded logs
+    outputs:
+      - debug-bundle manifest
+    possible_tool_failures:
+      - sensitive configuration not redacted
+      - missing process or service inventory
+      - unbounded log capture
+    independent_validation:
+      - tests/python/test_oa_cli_inspection.py
+      - scripts/export-debug-bundle.sh
+    test_suite:
+      - tests/python/test_oa_cli_inspection.py
+    version: source-controlled
+    reproducibility: deterministic-offline-snapshot
+    approval_status: accepted-for-support-pilot
+  - id: oa-supplier-delivery-exporter
+    class: evidence-generator
+    owner: release-engineering
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - package root
+      - generated manifests
+      - supplier delivery profile
+      - OEM evidence export
+      - test and quality evidence
+    outputs:
+      - supplier delivery manifest
+      - supplier delivery validation summary
+      - supplier delivery hash list
+      - supplier delivery package layout
+    possible_tool_failures:
+      - required delivery section omitted
+      - stale file retained from previous delivery
+      - incorrect profile adapter applied
+    independent_validation:
+      - scripts/validate-delivery-workflow.sh
+      - tests/python/test_delivery_workflow.py
+      - scripts/export-supplier-delivery.sh
+    test_suite:
+      - tests/python/test_delivery_workflow.py
+    version: source-controlled
+    reproducibility: deterministic-layout-and-sorted-hashes
+    approval_status: accepted-for-supplier-delivery-pilot
+  - id: oa-classic-integration-validator
+    class: evidence-generator
+    owner: virtual-vehicle
+    version_source: tools/oa_cli/__init__.py
+    inputs:
+      - Classic gateway controlled model
+      - versioned signal database
+      - Section 30 integration route requirements
+    outputs:
+      - classic integration validation evidence
+      - generated gateway runtime config
+      - generated gateway route plan
+      - signal database validation report
+    possible_tool_failures:
+      - required external-system route omitted
+      - signal database drift not detected
+      - runtime config does not match compiled gateway constants
+    independent_validation:
+      - scripts/validate-classic-integration.sh
+      - tests/python/test_classic_integration.py
+      - tests/unit/classic_gateway_config_test.cpp
+    test_suite:
+      - tests/python/test_classic_integration.py
+      - tests/unit/classic_gateway_config_test.cpp
+    version: source-controlled
+    reproducibility: deterministic-json-and-key-value-output
+    approval_status: accepted-for-classic-sil-pilot
+  - id: oa-program-governance-validator
+    class: evidence-generator
+    owner: quality-process-compliance
+    version_source: scripts/validate-program-governance.sh
+    inputs:
+      - program governance register
+      - initial backlog register
+      - official source baseline
+      - public API documentation index
+      - platform service documentation index
+      - repository source tree
+    outputs:
+      - program governance validation evidence
+    possible_tool_failures:
+      - frozen decision register drift not detected
+      - backlog item omitted from controlled register
+      - coding rule invariant missed by source scan
+    independent_validation:
+      - tests/python/test_program_governance.py
+      - scripts/validate-ci-contract.sh
+      - scripts/package.sh embedded evidence
+    test_suite:
+      - tests/python/test_program_governance.py
+    version: source-controlled
+    reproducibility: deterministic-source-tree-scan
+    approval_status: accepted-for-governance-baseline
+  - id: oa-implementation-plan-validator
+    class: evidence-generator
+    owner: program-management
+    version_source: scripts/validate-implementation-plan.sh
+    inputs:
+      - implementation program plan
+      - implementation workstream register
+      - Section 47 and 48 planning requirements
+    outputs:
+      - implementation plan validation evidence
+    possible_tool_failures:
+      - required program-plan section omitted
+      - workstream exit evidence count drift not detected
+      - QEMU-only vertical-slice assumption lost
+    independent_validation:
+      - tests/python/test_implementation_plan.py
+      - scripts/validate-ci-contract.sh
+      - scripts/package.sh embedded evidence
+    test_suite:
+      - tests/python/test_implementation_plan.py
+    version: source-controlled
+    reproducibility: deterministic-plan-and-count-scan
+    approval_status: accepted-for-program-plan-baseline
+  - id: release-package-scripts
+    class: release-signing
+    owner: release-engineering
+    version_source: scripts/release.sh
+    approval_status: signing-not-enabled-for-mvp

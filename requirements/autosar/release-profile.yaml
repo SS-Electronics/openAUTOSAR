@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+
+autosar:
+  platform: adaptive
+  primary_release: R22-11
+  schema_profile: r22-11
+  behavior_contract: r22-11
+  forward_reference_release: R25-11
+  requirement_snapshot: controlled
+  deviations_file: compliance/autosar/r22-11-deviations.yaml
+
+runtime:
+  target: qemux86-64
+  os: agl
+  hardware_scope: none-for-mvp

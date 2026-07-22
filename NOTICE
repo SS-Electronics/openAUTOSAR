@@ -1,0 +1,8 @@
+openAUTOSAR
+
+Project-authored source code and documentation in this repository are licensed
+under the MIT License unless a file states otherwise.
+
+Third-party software, operating systems, build tools, and generated distribution
+images retain their upstream licenses and must be reported in release SBOMs and
+notices.

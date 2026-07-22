@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.official-source-baseline.v1
+status: active
+redistribution_policy:
+  autosar_documents_committed: false
+  schemas_committed_without_permission: false
+sources:
+  - id: SRC-0001
+    name: autosar-adaptive-platform-release-index
+    url: https://www.autosar.org/standards/adaptive-platform
+    usage: release-index
+  - id: SRC-0002
+    name: autosar-r22-11-communication-management
+    base_url: https://www.autosar.org/fileadmin/standards/R22-11/AP/
+    document: AUTOSAR_SWS_CommunicationManagement.pdf
+    usage: controlled-reference
+  - id: SRC-0003
+    name: autosar-r22-11-release-event
+    url: https://www.autosar.org/news-events/detail/re22-11-release-event
+    usage: release-overview
+  - id: SRC-0004
+    name: autosar-legal-and-trademark
+    url: https://www.autosar.org/impressum
+    usage: legal-boundary
+  - id: SRC-0005
+    name: automotive-grade-linux
+    url: https://www.automotivelinux.org/
+    usage: linux-baseline
+  - id: SRC-0006
+    name: agl-documentation
+    url: https://docs.automotivelinux.org/
+    usage: linux-integration
+  - id: SRC-0007
+    name: agl-release-notes-and-qemu-artifacts
+    url: https://wiki.automotivelinux.org/agl-distro/release-notes
+    usage: qemu-reference
+  - id: SRC-0008
+    name: agl-unagi-announcement
+    base_url: https://www.automotivelinux.org/announcements/
+    slug_parts:
+      - automotive-grade-linux-releases-open-source-sodev-reference-platform
+      - for-software-defined-vehicles-and-welcomes-five-new-members
+    usage: support-baseline
+  - id: SRC-0009
+    name: rauc-documentation
+    url: https://rauc.readthedocs.io/
+    usage: update-backend
+  - id: SRC-0010
+    name: qt-6-8-licensing
+    url: https://doc.qt.io/qt-6.8/licensing.html
+    usage: dashboard-licensing
+  - id: SRC-0011
+    name: jenkins-documentation
+    url: https://www.jenkins.io/doc/
+    usage: ci
+  - id: SRC-0012
+    name: spdx-mit-identifier
+    url: https://spdx.org/licenses/MIT
+    usage: license-identifier
+  - id: SRC-0013
+    name: qemu-documentation
+    url: https://www.qemu.org/docs/master/
+    usage: virtual-target
+  - id: SRC-0014
+    name: linux-socketcan-documentation
+    url: https://docs.kernel.org/networking/can.html
+    usage: diagnostics-and-classic-integration

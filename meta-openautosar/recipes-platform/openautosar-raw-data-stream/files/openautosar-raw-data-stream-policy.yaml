@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.raw-data-stream.policy.v1
+mode: partial-bounded-stream
+binding_independent: true
+stream_framing:
+  max_frame_payload_bytes: 256
+  max_sample_bytes: 1024
+  max_fragments_per_sample: 8
+  fragment_reassembly: enabled
+  checksum: fnv32
+queue_policy:
+  depth: 4
+  default_overflow_policy: reject-newest
+  supported_overflow_policies:
+    - reject-newest
+    - drop-oldest
+safety_behavior:
+  reject_stale_frames: true
+  stale_timeout_ms: 100
+  reject_duplicate_sequences: true
+  reject_checksum_mismatch: true
+  deterministic_receipts: true
+traceability:
+  deployment_model_pointer: required
+  record_channel_trace: true
+unsupported:
+  zero_copy_shared_memory: deferred
+  inter_machine_raw_stream: deferred

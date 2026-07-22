@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.vehicle-ucm.policy.v1
+mode: coordinated-campaign-simulator
+target_scope: qemu-vehicle-fleet
+max_steps: 16
+require_all_targets_online: true
+require_rollback_capable: true
+require_sbom: true
+require_provenance: true
+require_health_confirmation: true
+activation_state: UpdateAllowed
+trusted_signers:
+  - openautosar-dev
+inventory:
+  required_fields:
+    - ecu_id
+    - machine_id
+    - installed_versions
+    - inactive_slot_free_bytes
+campaign_validation:
+  reject_unknown_ecu: true
+  reject_offline_target: true
+  reject_untrusted_signer: true
+  reject_missing_dependency: true
+  reject_non_upgrade_version: true
+  reject_duplicate_cluster_target: true
+rollback:
+  coordinated_rollback_on_health_failure: true
+  mark_failed_ecu_recovery_required: true
+audit:
+  record_campaign_state: true
+  record_ecu_health_confirmation: true
+  record_rollback_reason: true
+unsupported:
+  cloud_campaign_backend: deferred
+  cross_ecu_live_activation_transport: deferred

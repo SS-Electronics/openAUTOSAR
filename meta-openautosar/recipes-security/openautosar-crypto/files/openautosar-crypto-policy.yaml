@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.crypto.policy.v1
+provider: openssl
+backend: software
+approved: true
+algorithms:
+  digest:
+    - sha-256
+  mac:
+    - hmac-sha-256
+key_slots:
+  - id: slot://dev-signing
+    usage: signature-verification
+    provider: openssl
+    material_source: provisioned
+    exportable: false
+  - id: slot://network-firewall-mac
+    usage: hmac
+    provider: openssl
+    material_source: provisioned
+    exportable: false
+external_backends:
+  - kernel
+  - tpm
+  - hsm
+  - secure-enclave

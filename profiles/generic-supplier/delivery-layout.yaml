@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-delivery-layout.v1
+profile_id: generic-supplier
+status: controlled-template
+
+required_sections:
+  - 00-cover
+  - 10-model
+  - 20-software
+  - 30-manifests
+  - 40-build
+  - 50-quality
+  - 60-safety-security
+  - 70-compliance
+  - 80-integration
+
+required_paths:
+  - 00-cover/delivery-note.pdf
+  - 00-cover/release-notes.md
+  - 00-cover/known-issues.md
+  - 10-model/arxml
+  - 10-model/validation-report
+  - 10-model/change-report
+  - 20-software/software-clusters
+  - 20-software/binaries
+  - 20-software/libraries
+  - 20-software/debug-symbols-controlled
+  - 30-manifests/execution
+  - 30-manifests/service-instance
+  - 30-manifests/machine
+  - 40-build/tool-versions.json
+  - 40-build/build-config.json
+  - 40-build/hashes.txt
+  - 40-build/provenance.json
+  - 50-quality/test-reports
+  - 50-quality/coverage
+  - 50-quality/static-analysis
+  - 50-quality/performance
+  - 50-quality/traceability
+  - 60-safety-security/safety-evidence
+  - 60-safety-security/threat-analysis
+  - 60-safety-security/vulnerability-report
+  - 60-safety-security/signing-certificate-chain
+  - 70-compliance/sbom
+  - 70-compliance/license-report
+  - 70-compliance/deviations
+  - 70-compliance/approvals
+  - 80-integration/install-guide.md
+  - 80-integration/rollback-guide.md
+  - 80-integration/acceptance-tests
+  - 80-integration/support-matrix.md

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.api-abi-baseline.v1
+project: openAUTOSAR
+version: 0.1.0
+package_namespace: openautosar
+cmake_namespace: openautosar::
+extension_namespace: openautosar::extension
+minimum_public_headers: 30
+stable_error_domains:
+  - openautosar::core::ErrorCode
+required_policy:
+  - semantic-versioning
+  - symbol-visibility-control
+  - abi-baseline-check
+  - explicit-deprecation-policy
+  - generated-api-compatibility-tests
+  - stable-error-domains
+  - no-internal-type-leakage

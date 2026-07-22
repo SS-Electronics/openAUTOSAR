@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.registry.policy.v1
+mode: basic-runtime-registry
+max_records: 256
+require_source_model: true
+reject_duplicate_active_records: true
+default_lease_ttl_ms: 1000
+record_kinds:
+  - machine
+  - process
+  - service
+  - function-group
+  - software-cluster
+  - diagnostic
+  - policy
+identity:
+  safe_token_required: true
+  version_required: true
+  owner_required: true
+query:
+  deterministic_ordering: true
+  by_kind: true
+  by_state: true
+  by_owner_prefix: true
+  by_record_prefix: true
+stale_detection:
+  enabled: true
+  mark_active_records_only: true
+audit:
+  count_rejected_updates: true
+  count_stale_records: true
+unsupported:
+  distributed_registry_replication: deferred
+  persistent_registry_backend: deferred

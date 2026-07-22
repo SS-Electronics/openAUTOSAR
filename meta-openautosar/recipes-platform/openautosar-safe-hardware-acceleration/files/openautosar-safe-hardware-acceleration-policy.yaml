@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.safe-hardware-acceleration.policy.v1
+mode: represented-not-production-backend
+provider_model: safety-aware-accelerator-service
+production_hardware_backend: deferred
+default_accelerator_kind: cpu-fallback
+guardrails:
+  isolation: iommu-or-stronger
+  memory_ownership: service-owned-copy
+  job_timeout: deterministic
+  deterministic_failure: receipt-status
+  result_plausibility: required
+  data_corruption_detection: required
+  interference_control: required
+  scheduling_control: required
+  versioned_kernels: required
+  fallback_path: cpu-safe-fallback
+  safety_mechanism_coverage: required
+limits:
+  max_input_bytes: 4096
+  max_output_bytes: 4096
+  max_timeout_ms: 100
+evidence:
+  record_receipts: true
+  record_provider_gaps: true
+  record_fallback_use: true

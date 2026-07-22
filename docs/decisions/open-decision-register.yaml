@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.open-decision-register.v1
+status: controlled
+round: 4-required-before-adr-approval
+open_decisions:
+  - id: OD-0001
+    topic: exception and RTTI policy
+    status: open-after-round-4
+  - id: OD-0002
+    topic: dynamic allocation and bounded-memory policy
+    status: open-after-round-4
+  - id: OD-0003
+    topic: local IPC transport
+    status: open-after-round-4
+  - id: OD-0004
+    topic: XML library beneath the original AUTOSAR semantic parser
+    status: open-after-round-4
+  - id: OD-0005
+    topic: cgroup namespace capability and seccomp profile
+    status: open-after-round-4
+  - id: OD-0006
+    topic: signing algorithm provider and key-management model
+    status: open-after-round-4
+  - id: OD-0007
+    topic: persistency engine
+    status: open-after-round-4
+  - id: OD-0008
+    topic: logging backend and binary or text trace format
+    status: open-after-round-4
+  - id: OD-0009
+    topic: exact UDS service session and security subset
+    status: open-after-round-4
+  - id: OD-0010
+    topic: external SOME/IP and DDS interoperability peers
+    status: open-after-round-4
+  - id: OD-0011
+    topic: Jenkins topology artifact storage and untrusted-PR policy
+    status: open-after-round-4
+  - id: OD-0012
+    topic: Qt dashboard placement and LGPL compliance approach
+    status: open-after-round-4
+  - id: OD-0013
+    topic: ultrasonic rate range resolution and timeout contract
+    status: open-after-round-4
+  - id: OD-0014
+    topic: future safety qualification intent and evidence depth
+    status: open-after-round-4
+  - id: OD-0015
+    topic: Bosch and ETAS integration boundary under lawful contract
+    status: open-after-round-4

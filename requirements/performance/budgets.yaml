@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.performance.budgets.v1
+status: controlled
+target: qemu-x86_64
+budgets:
+  - component: communication-management
+    target: qemu-x86_64
+    budgets:
+      cold_start_ms: 500
+      service_discovery_ms: 100
+      local_ipc_p99_us: 500
+      resident_memory_mb: 32
+      cpu_idle_percent: 1
+      restart_recovery_ms: 1000
+  - component: execution-management
+    target: qemu-x86_64
+    budgets:
+      cold_start_ms: 750
+      service_discovery_ms: 0
+      local_ipc_p99_us: 0
+      resident_memory_mb: 24
+      cpu_idle_percent: 1
+      restart_recovery_ms: 1000
+  - component: update-management
+    target: qemu-x86_64
+    budgets:
+      cold_start_ms: 1000
+      service_discovery_ms: 0
+      local_ipc_p99_us: 0
+      resident_memory_mb: 32
+      cpu_idle_percent: 1
+      restart_recovery_ms: 5000
+  - component: diagnostics
+    target: qemu-x86_64
+    budgets:
+      cold_start_ms: 500
+      service_discovery_ms: 100
+      local_ipc_p99_us: 500
+      resident_memory_mb: 24
+      cpu_idle_percent: 1
+      restart_recovery_ms: 1000

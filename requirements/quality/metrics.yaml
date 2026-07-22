@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.quality.metrics.v1
+status: controlled
+target: qemu-x86_64
+metrics:
+  - name: requirements coverage
+    owner: systems-engineering
+    evidence:
+      - out/package/generic-oem/share/openautosar/generated/traceability/traceability.json
+      - out/oem-export/generic-oem/artifact-inventory.json
+    acceptance: traceability records generated for model and release artifacts
+  - name: branch/MC/DC coverage where applicable
+    owner: verification
+    evidence:
+      - out/test-results
+    acceptance: tracked for safety-related code when coverage tooling is enabled
+  - name: escaped defects
+    owner: quality
+    evidence:
+      - release approval checklist
+    acceptance: reviewed before release
+  - name: static-analysis warnings
+    owner: quality
+    evidence:
+      - CI quality gate
+    acceptance: no unreviewed critical findings
+  - name: API compatibility
+    owner: platform-api
+    evidence:
+      - out/evidence/api-abi/validation.json
+      - out/evidence/api-abi/public-header-baseline.json
+    acceptance: public header baseline generated and policy checks pass
+  - name: startup time
+    owner: execution-management
+    evidence:
+      - requirements/performance/budgets.yaml
+    acceptance: component budget recorded for target profile
+  - name: service discovery time
+    owner: communication-management
+    evidence:
+      - requirements/performance/budgets.yaml
+    acceptance: component budget recorded for target profile
+  - name: IPC latency
+    owner: communication-management
+    evidence:
+      - requirements/performance/budgets.yaml
+    acceptance: local IPC p99 budget recorded for target profile
+  - name: CPU/memory budget
+    owner: platform-runtime
+    evidence:
+      - requirements/performance/budgets.yaml
+      - out/evidence/debug-bundle/manifest.json
+    acceptance: configured limits reported in budget and debug bundle
+  - name: restart recovery time
+    owner: platform-health-management
+    evidence:
+      - requirements/performance/budgets.yaml
+    acceptance: restart recovery budget recorded for supervised components
+  - name: update/rollback success
+    owner: update-management
+    evidence:
+      - tests/unit/vehicle_update_management_test.cpp
+      - out/evidence/debug-bundle/manifest.json
+    acceptance: update and rollback paths covered by tests and release evidence
+  - name: reproducibility match rate
+    owner: release-engineering
+    evidence:
+      - tests/python/test_oa_cli_model.py
+      - tests/python/test_oa_cli_oem_export.py
+    acceptance: deterministic generation and export tests pass
+  - name: vulnerability age
+    owner: security
+    evidence:
+      - out/oem-export/generic-oem/sbom.spdx.json
+    acceptance: tracked from SBOM and release audit

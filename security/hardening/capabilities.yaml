@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.security.capabilities.v1
+default:
+  no_new_privileges: true
+  permitted:
+    - CAP_NET_RAW
+  forbidden:
+    - CAP_SYS_ADMIN
+    - CAP_SYS_MODULE
+    - CAP_SYS_PTRACE
+services:
+  openautosar-bootstrap:
+    permitted:
+      - CAP_NET_RAW
+    rationale: virtual network and vcan setup for QEMU profile
+  openautosar-dashboard:
+    permitted: []
+    rationale: read-only supportability and snapshot surface

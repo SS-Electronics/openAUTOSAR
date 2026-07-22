@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.log-trace.policy.v1
+backend_independent: true
+default_backend: test-memory-sink
+record_fields:
+  - application_id
+  - context_id
+  - severity
+  - monotonic_timestamp
+  - wall_timestamp
+  - process_identity
+  - thread_identity
+  - machine_id
+  - software_cluster_version
+  - correlation_id
+  - structured_fields
+rate_limit:
+  max_records: 1000
+  window_ms: 1000
+buffer_limit:
+  capacity: 128
+  overflow_policy: drop-oldest
+  max_message_bytes: 4096
+loss_accounting:
+  count_rate_limit_drops: true
+  count_buffer_drops: true
+  count_truncated_messages: true
+  count_sink_failures: true
+privacy:
+  redact_by_default: false

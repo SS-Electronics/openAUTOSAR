@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-arxml-mapping.v1
+profile_id: bosch-supplier
+status: template-only
+
+mapping_policy:
+  source: authorized-project-contract
+  preserve_source_provenance: true
+  normalize_namespaces: true
+  reject_ambiguous_destructive_changes: true
+
+mapping_targets:
+  service_interfaces: project-defined
+  service_instances: project-defined
+  machine_design: project-defined
+  diagnostics: project-defined
+  software_clusters: project-defined

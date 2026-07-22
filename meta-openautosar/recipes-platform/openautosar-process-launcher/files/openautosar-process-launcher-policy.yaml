@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.process-launcher.policy.v1
+launcher: systemd-scope
+mode: dry-run-evidence
+default_identity:
+  user: openautosar
+  group: openautosar
+cgroup_v2:
+  slice: openautosar.slice
+  cpu_weight: 100
+  file_descriptor_limit: 1024
+  memory_max_bytes: 67108864
+namespaces:
+  private_tmp: true
+  private_devices: true
+  private_network: false
+  protect_system: true
+capabilities:
+  no_new_privileges: true
+  permitted:
+    - CAP_NET_RAW
+seccomp:
+  profile: openautosar-default
+  allowed_syscall_groups:
+    - "@system-service"
+audit:
+  record_scope_name: true
+  record_cgroup_operations: true
+  record_systemd_properties: true

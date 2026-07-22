@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+
+target: qemu-x86_64-agl-unagi
+status: tier-1-bootstrap
+purpose:
+  - Adaptive runtime bootstrap
+  - Jenkins CI smoke
+  - SIL virtual vehicle
+  - UDS and SocketCAN vcan foundation
+  - Time and network policy validation
+agl:
+  release_name: Ultimate Unagi
+  release_version: 21.0.2
+  branch: unagi
+  manifest: unagi_21.0.2.xml
+yocto:
+  release: scarthgap-5.0.18
+machine: qemux86-64
+hardware_scope: virtual-only
+systemd_boundary:
+  starts:
+    - openautosar-bootstrap.service
+  adaptive_application_owner: execution-management
+network_policy:
+  tap: tap-openautosar0
+  can: can0
+  firewall_output: nftables
+time_policy:
+  clock_domain: gptp
+  source: virtual-gptp
+resource_policy:
+  user: openautosar
+  memory_max: 256M
+  tasks_max: 64
+  no_new_privileges: true

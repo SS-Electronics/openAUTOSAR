@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.time-network.policy.v1
+target: qemux86-64-agl-unagi
+time:
+  virtual_clock:
+    enabled: true
+    source: virtual-gptp
+  domains:
+    - id: gptp
+      max_uncertainty_ns: 1000000
+      jump_threshold_ns: 5000000
+      loss_of_sync_timeout_ns: 1000000000
+      jump_policy: degrade
+network:
+  interfaces:
+    - name: tap-openautosar0
+      required: true
+      function_groups:
+        - Startup
+        - DrivingReady
+        - Degraded
+      recovery_timeout_ms: 1000
+    - name: can0
+      required: true
+      function_groups:
+        - Startup
+        - DrivingReady
+        - Degraded
+      recovery_timeout_ms: 500
+  endpoint_policies:
+    - id: ultrasonic-someip
+      interface: tap-openautosar0
+      protocol: udp
+      address_prefix: "10.42.0."
+      port_min: 30500
+      port_max: 30599
+      allow_in_update_mode: false
+      function_groups:
+        - DrivingReady
+        - Degraded
+    - id: diagnostics-vcan
+      interface: can0
+      protocol: can
+      address_prefix: "*"
+      port_min: 0
+      port_max: 0
+      allow_in_update_mode: true
+      function_groups:
+        - Startup
+        - DrivingReady
+        - Degraded
+    - id: update-backend
+      interface: tap-openautosar0
+      protocol: tcp
+      address_prefix: "10.42.0."
+      port_min: 443
+      port_max: 443
+      allow_in_update_mode: true
+      function_groups:
+        - Startup
+        - Degraded
+firewall:
+  dry_run_first: true
+  output: nftables

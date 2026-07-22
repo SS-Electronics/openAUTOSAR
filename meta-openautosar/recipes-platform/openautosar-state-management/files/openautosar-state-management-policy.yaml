@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.state-management.policy.v1
+machine: qemux86-64-agl-unagi
+function_groups:
+  - name: MachineFG
+    initial_state: Off
+    states:
+      - Off
+      - Startup
+      - DrivingReady
+      - Diagnostic
+      - Parking
+      - Update
+      - Degraded
+      - Shutdown
+    transitions:
+      - from: Off
+        to: Startup
+        required_priority: critical
+      - from: Startup
+        to: DrivingReady
+        required_priority: normal
+        failure_state: Degraded
+      - from: Startup
+        to: Diagnostic
+        required_priority: high
+      - from: DrivingReady
+        to: Degraded
+        required_priority: high
+      - from: Degraded
+        to: Parking
+        required_priority: normal
+      - from: Parking
+        to: Update
+        required_priority: high
+      - from: Update
+        to: Parking
+        required_priority: normal
+      - from: Parking
+        to: Shutdown
+        required_priority: critical
+requests:
+  require_requester_identity: true
+  require_transition_reason: true
+  priority_order:
+    - critical
+    - high
+    - normal
+    - low
+audit:
+  record_transition_causes: true
+  record_failures: true
+  notify_observers: true

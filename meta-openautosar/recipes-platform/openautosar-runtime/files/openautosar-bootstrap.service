@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+
+[Unit]
+Description=openAUTOSAR platform bootstrap
+Documentation=man:systemd.service(5)
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/openautosar/bootstrap.env
+ExecStart=/usr/bin/oa-bootstrap
+Restart=on-failure
+RestartSec=1s
+User=openautosar
+Group=openautosar
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/openautosar /var/log/openautosar
+MemoryMax=256M
+TasksMax=64
+LimitNOFILE=1024
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

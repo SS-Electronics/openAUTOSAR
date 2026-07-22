@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.implementation-workstreams.v1
+status: active
+capacity:
+  engineering_hours_per_week: 10
+  productive_hours_per_month: 40
+  active_major_workstream_limit: 1
+vertical_slice_order:
+  - id: VS-0001
+    focus: legal-ip-controls-and-r22-11-inventory
+  - id: VS-0002
+    focus: agl-unagi-qemu-image-and-jenkins-boot-pipeline
+  - id: VS-0003
+    focus: virtual-vehicle-network-ultrasonic-model-and-classic-simulator
+  - id: VS-0004
+    focus: versioned-model-manifest-ir
+  - id: VS-0005
+    focus: execution-management-and-state-management
+  - id: VS-0006
+    focus: generated-ultrasonic-ara-com-contract
+  - id: VS-0007
+    focus: local-ipc-and-original-someip-udp-then-tcp
+  - id: VS-0008
+    focus: original-dds-rtps-subset-and-binding
+  - id: VS-0009
+    focus: phm-supervision-and-fail-silent-degraded-policy
+  - id: VS-0010
+    focus: signed-software-cluster-ucm-over-rauc-ab-storage
+  - id: VS-0011
+    focus: uds-vcan-dashboard-and-evidence-export
+  - id: VS-0012
+    focus: oem-neutral-delivery-workflow-and-generic-bosch-style-export
+workstreams:
+  - id: WS-00
+    name: host-qualification-and-repository-bootstrap
+    effort_hours_min: 20
+    effort_hours_max: 35
+    status: mostly-implemented
+    exit_evidence:
+      - host-build
+      - test-report
+      - license-scan
+      - jenkins-smoke-pipeline
+      - developer-container
+  - id: WS-01
+    name: agl-qemu-and-jenkins-sil-foundation
+    effort_hours_min: 50
+    effort_hours_max: 90
+    status: active-bootstrap
+    exit_evidence:
+      - qemu-boot
+      - health-endpoint
+      - serial-logs
+      - packet-capture
+      - dashboard-shell
+      - sbom
+  - id: WS-02
+    name: r22-11-arxml-toolchain-and-runtime-core
+    effort_hours_min: 90
+    effort_hours_max: 150
+    status: active-bootstrap
+    exit_evidence:
+      - deterministic-ultrasonic-generation
+      - invalid-model-diagnostics
+      - typed-ir
+      - manifest-generation
+      - runtime-core-apis
+  - id: WS-03
+    name: execution-state-management-and-ultrasonic-sil
+    effort_hours_min: 100
+    effort_hours_max: 170
+    status: active-bootstrap
+    exit_evidence:
+      - state-transition-starts-provider
+      - ultrasonic-data-consumer
+      - fault-injection-degraded-behavior
+      - dashboard-process-service-state
+  - id: WS-04
+    name: local-ipc-and-someip-udp-vertical-slice
+    effort_hours_min: 180
+    effort_hours_max: 300
+    status: planned
+    exit_evidence:
+      - local-ipc-contract
+      - someip-udp-contract
+      - protocol-captures
+      - malformed-packet-tests
+      - external-peer-results
+  - id: WS-05
+    name: original-dds-rtps-subset
+    effort_hours_min: 250
+    effort_hours_max: 450
+    status: planned
+    exit_evidence:
+      - dds-feature-matrix
+      - rtps-golden-vectors
+      - oracle-interoperability-results
+      - liveliness-restart-tests
+  - id: WS-06
+    name: phm-persistency-and-uds-over-virtual-can
+    effort_hours_min: 140
+    effort_hours_max: 240
+    status: planned
+    exit_evidence:
+      - diagnostic-tester-dtc-read-clear
+      - supervision-fault-tests
+      - persistency-restart-tests
+      - corruption-recovery-tests
+  - id: WS-07
+    name: ucm-rauc-ab-update-and-rollback
+    effort_hours_min: 130
+    effort_hours_max: 220
+    status: planned
+    exit_evidence:
+      - inactive-slot-install
+      - health-confirmation-commit
+      - corrupted-bundle-rejection
+      - failed-health-rollback
+      - interrupted-update-recovery
+  - id: WS-08
+    name: oem-export-and-release-evidence
+    effort_hours_min: 100
+    effort_hours_max: 180
+    status: active-bootstrap
+    exit_evidence:
+      - clean-checkout-release-job
+      - complete-oem-bundle
+      - supplier-delivery-bundle
+      - sbom-license-provenance-checksums
+      - traceability-and-test-evidence
+milestones:
+  - id: MS-06M
+    horizon_months: 6
+    outcome: qemu-lifecycle-ultrasonic-dashboard-slice
+  - id: MS-12M
+    horizon_months: 12
+    outcome: local-ipc-and-someip-udp-vertical-slice
+  - id: MS-24M
+    horizon_months: 24
+    outcome: dds-diagnostics-update-and-oem-evidence-baseline
+horizon:
+  broad_release_hours_min: 1060
+  broad_release_hours_max: 1835
+  broad_release_calendar_years_min: 2
+  broad_release_calendar_years_max: 4
+parallelization_tracks:
+  - id: PT-01
+    name: platform-agl-jenkins
+  - id: PT-02
+    name: arxml-generators
+  - id: PT-03
+    name: lifecycle-core-apis
+  - id: PT-04
+    name: someip
+  - id: PT-05
+    name: dds-rtps
+  - id: PT-06
+    name: phm-diagnostics-update
+  - id: PT-07
+    name: qt-dashboard-and-test-tooling
+  - id: PT-08
+    name: safety-security-compliance-evidence

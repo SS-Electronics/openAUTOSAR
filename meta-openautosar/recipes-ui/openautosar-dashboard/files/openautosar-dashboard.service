@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+
+[Unit]
+Description=openAUTOSAR engineering dashboard
+After=openautosar-bootstrap.service
+Requires=openautosar-bootstrap.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/openautosar/dashboard.env
+ExecStart=/usr/bin/openautosar-dashboard-launch
+Restart=on-failure
+RestartSec=2s
+User=openautosar
+Group=openautosar
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/openautosar /var/log/openautosar
+MemoryMax=512M
+TasksMax=128
+LimitNOFILE=1024
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

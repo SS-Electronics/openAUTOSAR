@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-quality-gates.v1
+profile_id: generic-supplier
+status: controlled-template
+
+gates:
+  - id: source-profile-validation
+    evidence: out/evidence/delivery-workflow/validation.json
+    required_status: valid
+  - id: model-validation
+    evidence: 10-model/validation-report/model-validation.json
+    required_status: valid
+  - id: generated-traceability
+    evidence: 50-quality/traceability/traceability.json
+    required_status: generated
+  - id: compliance-export
+    evidence: 70-compliance/sbom/sbom.spdx.json
+    required_status: present
+  - id: supplier-delivery-layout
+    evidence: validation-summary.json
+    required_status: valid

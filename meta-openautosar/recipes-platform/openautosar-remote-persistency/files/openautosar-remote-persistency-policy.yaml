@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.remote-persistency.policy.v1
+mode: represented-not-production-backend
+local_store_first: true
+default_transport: mutual-tls
+default_remote_writes: disabled
+guardrails:
+  reject_weakened_targets: true
+  confidentiality_required: true
+  integrity_required: true
+  mutual_authentication_required: true
+  rollback_protection_required: true
+  min_availability_class: 3
+  required_data_residency_region: us-east-1
+  max_latency_ms: 50
+operation_policy:
+  mirror_put_requires_schema_match: true
+  restore_request_requires_schema_match: true
+  enforce_key_prefix: true
+  enforce_payload_quota: true
+  record_blocked_receipts: true
+backend_status:
+  network_backend: deferred
+  deterministic_guardrail_client: enabled

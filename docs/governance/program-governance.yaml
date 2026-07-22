@@ -1,0 +1,248 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.program-governance.v1
+status: active
+decision_round: 3
+planning_capacity:
+  engineering_hours_per_week: 10
+  primary_developers: 1
+  active_major_workstream_limit: 1
+confirmed_decisions:
+  - id: FD-0001
+    topic: product-baseline
+    decision: Open source own-OEM ADAS reference platform.
+  - id: FD-0002
+    topic: adaptive-scope
+    decision: Complete Adaptive Platform is a long-term incremental scope.
+  - id: FD-0003
+    topic: autosar-baseline
+    decision: AUTOSAR Adaptive R22-11 is the primary behavior and model baseline.
+  - id: FD-0004
+    topic: linux-baseline
+    decision: AGL Ultimate Unagi 21.0.2 with Yocto Scarthgap 5.0.18.
+  - id: FD-0005
+    topic: virtual-target
+    decision: QEMU x86-64 is the only current target.
+  - id: FD-0006
+    topic: development-host
+    decision: Ubuntu 64-bit host with 16 GB RAM is the current assumption.
+  - id: FD-0007
+    topic: implementation-language
+    decision: C++20 runtime with public ABI policy aligned to R22-11.
+  - id: FD-0008
+    topic: model-flow
+    decision: R22-11 ARXML-first inputs and project-owned typed IR.
+  - id: FD-0009
+    topic: someip
+    decision: Original SOME/IP implementation, UDP first.
+  - id: FD-0010
+    topic: dds-rtps
+    decision: Original DDS/RTPS subset and binding.
+  - id: FD-0011
+    topic: diagnostics
+    decision: UDS over SocketCAN vcan is the first diagnostic transport.
+  - id: FD-0012
+    topic: ultrasonic-safety
+    decision: Fail-silent and degraded ultrasonic behavior is approved.
+  - id: FD-0013
+    topic: update-management
+    decision: Original UCM orchestration over replaceable RAUC A/B backend.
+  - id: FD-0014
+    topic: ci
+    decision: Jenkins is the authoritative CI entry point.
+  - id: FD-0015
+    topic: license
+    decision: MIT applies to original project-authored code.
+  - id: FD-0016
+    topic: dashboard
+    decision: Qt 6 and QML are used for the engineering dashboard.
+  - id: FD-0017
+    topic: delivery
+    decision: OEM export must contain the complete artifact and evidence set.
+  - id: FD-0018
+    topic: name-risk
+    decision: openAUTOSAR is retained as a working name with known legal risk.
+bootstrap_open_questions:
+  - id: BQ-0001
+    topic: ubuntu-release
+    status: open-non-blocking
+  - id: BQ-0002
+    topic: host-cpu-core-count
+    status: open-non-blocking
+  - id: BQ-0003
+    topic: yocto-cache-disk-and-filesystem
+    status: open-non-blocking
+  - id: BQ-0004
+    topic: kvm-availability
+    status: open-non-blocking
+  - id: BQ-0005
+    topic: jenkins-node-placement
+    status: open-non-blocking
+  - id: BQ-0006
+    topic: contributor-count
+    status: open-non-blocking
+  - id: BQ-0007
+    topic: compiler-pin-policy
+    status: open-non-blocking
+  - id: BQ-0008
+    topic: cybersecurity-assurance-and-key-management
+    status: open-non-blocking
+  - id: BQ-0009
+    topic: first-uds-session-security-subset
+    status: open-non-blocking
+  - id: BQ-0010
+    topic: first-someip-and-dds-interoperability-peers
+    status: open-non-blocking
+  - id: BQ-0011
+    topic: artifact-hosting-and-release-location
+    status: open-non-blocking
+  - id: BQ-0012
+    topic: qt-lgpl-or-commercial-path
+    status: open-non-blocking
+round4_contract_questions:
+  - id: R4Q-0001
+    topic: exact-host-version-and-ssd-space
+    status: open
+  - id: R4Q-0002
+    topic: cpu-model-core-count-and-kvm
+    status: open
+  - id: R4Q-0003
+    topic: jenkins-workstation-or-separate-node
+    status: open
+  - id: R4Q-0004
+    topic: uds-isotp-or-single-frame-start
+    status: open
+  - id: R4Q-0005
+    topic: mandatory-initial-uds-services
+    status: open
+  - id: R4Q-0006
+    topic: external-someip-peer
+    status: open
+  - id: R4Q-0007
+    topic: external-dds-oracle
+    status: open
+  - id: R4Q-0008
+    topic: qt-dashboard-placement
+    status: open
+  - id: R4Q-0009
+    topic: dashboard-orientation
+    status: open
+  - id: R4Q-0010
+    topic: jenkins-release-publishing
+    status: open
+  - id: R4Q-0011
+    topic: untrusted-pr-resource-policy
+    status: open
+  - id: R4Q-0012
+    topic: first-security-milestone-scope
+    status: open
+  - id: R4Q-0013
+    topic: arxml-xml-library-strategy
+    status: open
+  - id: R4Q-0014
+    topic: ultrasonic-service-rate
+    status: open
+  - id: R4Q-0015
+    topic: ultrasonic-range-resolution-timeout-invalid-encoding
+    status: open
+implementation_team_roles:
+  - id: ROLE-0001
+    role: chief-platform-architect
+  - id: ROLE-0002
+    role: autosar-model-and-methodology
+  - id: ROLE-0003
+    role: linux-yocto-bsp
+  - id: ROLE-0004
+    role: execution-and-state-management
+  - id: ROLE-0005
+    role: communication-someip-e2e
+  - id: ROLE-0006
+    role: safety-and-health-management
+  - id: ROLE-0007
+    role: cybersecurity-crypto-hsm
+  - id: ROLE-0008
+    role: update-and-diagnostics
+  - id: ROLE-0009
+    role: generators-and-developer-tooling
+  - id: ROLE-0010
+    role: ci-test-sil-virtual-network
+  - id: ROLE-0011
+    role: oem-integration-and-release
+  - id: ROLE-0012
+    role: quality-process-compliance
+coding_rules:
+  - id: CR-0001
+    rule: cxx20-required
+    validator: cmake-standard-and-adr
+  - id: CR-0002
+    rule: spdx-mit-on-project-files
+    validator: license-scan-and-program-governance
+  - id: CR-0003
+    rule: public-headers-under-include
+    validator: program-governance
+  - id: CR-0004
+    rule: hidden-implementation-symbols
+    validator: cmake-visibility-policy
+  - id: CR-0005
+    rule: raii-resource-ownership
+    validator: review-required
+  - id: CR-0006
+    rule: explicit-thread-ownership
+    validator: review-required
+  - id: CR-0007
+    rule: no-detached-threads
+    validator: program-governance
+  - id: CR-0008
+    rule: no-global-mutable-singletons-without-lifecycle
+    validator: review-required
+  - id: CR-0009
+    rule: bounded-production-queues
+    validator: review-required
+  - id: CR-0010
+    rule: monotonic-clock-for-deadlines
+    validator: review-required
+  - id: CR-0011
+    rule: cancellation-and-shutdown-tested
+    validator: test-required
+  - id: CR-0012
+    rule: externally-sourced-data-validated
+    validator: test-required
+  - id: CR-0013
+    rule: no-direct-filesystem-paths-in-application-code
+    validator: review-required
+  - id: CR-0014
+    rule: no-root-execution-by-default
+    validator: program-governance
+  - id: CR-0015
+    rule: no-unbounded-retry-loop
+    validator: program-governance
+  - id: CR-0016
+    rule: restart-loops-escalate
+    validator: review-required
+  - id: CR-0017
+    rule: generated-files-marked-and-not-manually-edited
+    validator: generator-and-review-required
+  - id: CR-0018
+    rule: release-artifacts-content-addressed
+    validator: oem-export-and-supplier-delivery
+documentation_policy:
+  adr_pattern: docs/decisions/ADR-XXXX-title.md
+  public_api_topics:
+    - purpose
+    - lifecycle
+    - threading
+    - ownership
+    - errors
+    - timing
+    - example
+    - compatibility-status
+  platform_service_topics:
+    - context-diagram
+    - sequence-diagram
+    - state-machine
+    - trust-boundary
+    - deployment-model
+    - failure-table
+    - verification-strategy
+governance_evidence:
+  - scripts/validate-program-governance.sh
+  - out/evidence/program-governance/validation.json

@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.security.policy.v1
+production_mode: true
+remote_diagnostics_allowed: false
+default_decision: deny
+principals:
+  - id: oa-ultrasonic-gateway-smoke
+    machine: qemux86-64
+    roles:
+      - ultrasonic-provider
+  - id: oa-dashboard
+    machine: qemux86-64
+    roles:
+      - ultrasonic-consumer
+  - id: local-diagnostic-tester
+    machine: qemux86-64
+    roles:
+      - diagnostic-tester
+  - id: oa-network-policy
+    machine: qemux86-64
+    roles:
+      - network-policy-admin
+  - id: external-hmi
+    machine: qemux86-64
+    roles:
+      - api-gateway-client
+access_rules:
+  - resource_kind: service
+    resource_prefix: ultrasonic-service
+    operations:
+      - offer-service
+      - publish-event
+    roles:
+      - ultrasonic-provider
+    allow_remote: false
+  - resource_kind: service
+    resource_prefix: ultrasonic-service
+    operations:
+      - find-service
+      - subscribe-event
+    roles:
+      - ultrasonic-consumer
+    allow_remote: false
+  - resource_kind: diagnostic
+    resource_prefix: uds
+    operations:
+      - diagnostic-read
+      - diagnostic-security-access
+      - diagnostic-clear-dtc
+      - diagnostic-routine-control
+    roles:
+      - diagnostic-tester
+    allow_remote: false
+  - resource_kind: firewall
+    resource_prefix: openautosar-firewall
+    operations:
+      - install-firewall-rule
+    roles:
+      - network-policy-admin
+    allow_remote: false
+  - resource_kind: api-gateway
+    resource_prefix: gateway/
+    operations:
+      - invoke-gateway-route
+    roles:
+      - api-gateway-client
+    allow_remote: true
+signer_trust:
+  - signer_id: openautosar-dev
+    key_slot: slot://dev-signing
+    certificate_id: cert-openautosar-dev
+    minimum_counter: 1
+idsm:
+  max_events: 256
+  aggregation_window_ms: 1000

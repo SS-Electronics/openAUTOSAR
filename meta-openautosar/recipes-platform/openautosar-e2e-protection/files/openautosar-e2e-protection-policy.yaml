@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.e2e-protection.policy.v1
+profile_baseline: profile01
+transport_independent: true
+crc:
+  algorithm: crc32-iso-hdlc
+  golden_vector:
+    input_ascii: "123456789"
+    expected: "0xCBF43926"
+default_event_policy:
+  max_delta_counter: 1
+  timeout_ms: 100
+  max_repetitions: 0
+  counter_bits: 8
+status_mapping:
+  ok: accepted
+  repeated: rejected
+  wrong_sequence: rejected
+  timeout: rejected
+  wrong_profile: rejected
+  wrong_data_id: rejected
+  crc_mismatch: rejected
+  malformed: rejected
+fault_injection:
+  enabled_in_profiles:
+    - dev
+    - ci
+  modes:
+    - corrupt_crc
+    - wrong_data_id
+    - repeat_counter
+    - stale_timestamp
+    - truncate_payload
+traceability:
+  source: service-deployment-model
+  required_fields:
+    - service_instance
+    - event_name
+    - source_model_path
+    - source_model_pointer

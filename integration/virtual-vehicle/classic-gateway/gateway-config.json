@@ -1,0 +1,133 @@
+{
+  "license": "SPDX-License-Identifier: MIT",
+  "schema": "openautosar.classic-gateway.config.v1",
+  "status": "controlled",
+  "simulation": {
+    "mode": "software-in-the-loop",
+    "requires_mcu": false,
+    "requires_commercial_classic_stack": false
+  },
+  "transport": {
+    "socketcan_interface": "vcan0",
+    "type": "can-fd-style",
+    "ultrasonic_can_id": "0x321",
+    "pdu_size_bytes": 23
+  },
+  "signal_database": {
+    "path": "integration/virtual-vehicle/classic-ecu-simulator/signal-database/ultrasonic_v1.json",
+    "name": "openautosar.ultrasonic.classic.v1",
+    "schema_version": 1
+  },
+  "service": {
+    "name": "UltrasonicDistanceService",
+    "instance": "/OpenAUTOSAR/Vehicle/Ultrasonic/FrontCenter",
+    "interface_id": "0x0A500001",
+    "instance_id": "0x00000001",
+    "major_version": 1,
+    "minor_version": 0,
+    "event_name": "DistanceSample"
+  },
+  "runtime": {
+    "process_identity": "oa-ultrasonic-gateway-smoke",
+    "machine_identity": "qemux86-64",
+    "endpoint": "local://ultrasonic/front-center",
+    "access_policy": "local-test",
+    "deployment_provenance": "model/examples/vehicle/ultrasonic_service.json"
+  },
+  "validation": {
+    "max_sample_age_ns": 25000000,
+    "degraded_after_consecutive_faults": 2,
+    "alive_counter": "monotonic-modulo-256",
+    "time_base": "sample-timestamp-ns"
+  },
+  "external_systems": [
+    {
+      "name": "AUTOSAR Classic ECU",
+      "boundary": "SocketCAN vcan simulator",
+      "mvp_mode": "simulated"
+    },
+    {
+      "name": "diagnostic tester",
+      "boundary": "UDS over CAN single-frame simulator",
+      "mvp_mode": "simulated"
+    },
+    {
+      "name": "backend/cloud system",
+      "boundary": "update-status route plan",
+      "mvp_mode": "represented"
+    },
+    {
+      "name": "other Adaptive machine",
+      "boundary": "SOME/IP service route plan",
+      "mvp_mode": "represented"
+    },
+    {
+      "name": "non-AUTOSAR application",
+      "boundary": "automotive API gateway route plan",
+      "mvp_mode": "represented"
+    },
+    {
+      "name": "HMI system",
+      "boundary": "vehicle-state and function-group status route plan",
+      "mvp_mode": "represented"
+    }
+  ],
+  "routes": [
+    {
+      "id": "ultrasonic-signal-to-service",
+      "type": "ultrasonic signal-to-service mapping",
+      "source": "classic.can.frame.0x321",
+      "target": "ara-com.event.DistanceSample",
+      "status": "implemented"
+    },
+    {
+      "id": "ultrasonic-service-to-signal",
+      "type": "service-to-signal mapping for control/status tests",
+      "source": "ara-com.method.ControlRequest",
+      "target": "classic.can.frame.0x322",
+      "status": "route-plan"
+    },
+    {
+      "id": "someip-to-can-ultrasonic",
+      "type": "SOME/IP-to-CAN/CAN-FD-style mapping",
+      "source": "someip.service.0x0A500001",
+      "target": "classic.can.frame.0x321",
+      "status": "route-plan"
+    },
+    {
+      "id": "diagnostics-routing",
+      "type": "diagnostics routing",
+      "source": "classic.can.uds.request.0x7E0",
+      "target": "diagnostic-manager",
+      "status": "implemented"
+    },
+    {
+      "id": "time-alive-validation",
+      "type": "time and alive-counter validation",
+      "source": "classic.signal.timestamp_ns.alive_counter",
+      "target": "ultrasonic-signal-validator",
+      "status": "implemented"
+    },
+    {
+      "id": "update-status",
+      "type": "update status",
+      "source": "vehicle-ucm.transaction-state",
+      "target": "classic.can.frame.0x330",
+      "status": "route-plan"
+    },
+    {
+      "id": "vehicle-state",
+      "type": "vehicle state",
+      "source": "state-manager.vehicle-mode",
+      "target": "classic.can.frame.0x331",
+      "status": "route-plan"
+    },
+    {
+      "id": "function-group-state",
+      "type": "Function Group state",
+      "source": "state-manager.function-group",
+      "target": "classic.can.frame.0x332",
+      "status": "route-plan"
+    }
+  ]
+}

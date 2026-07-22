@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openautosar-tools"
+version = "0.1.0"
+description = "Host tooling for the openAUTOSAR Adaptive-oriented runtime"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+oa = "oa_cli.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "tools"}
+
+[tool.setuptools.packages.find]
+where = ["tools"]

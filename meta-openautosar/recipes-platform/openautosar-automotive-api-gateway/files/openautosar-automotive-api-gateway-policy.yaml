@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.automotive-api-gateway.policy.v1
+mode: bounded-ingress-mediator
+namespace: openautosar::gateway
+public_api_boundary:
+  ara_extension: false
+  project_owned_api: true
+  no_systemd_lifecycle_bypass: true
+authorization:
+  backend: iam
+  reject_unauthenticated_clients: true
+  reject_remote_clients_by_default: true
+  record_authorization_failures: true
+routing:
+  route_source_model_required: true
+  deterministic_receipts: true
+  service_discovery_forwarding: ara-com
+  event_publish_forwarding: ara-com
+  max_routes: 32
+  max_payload_bytes: 1024
+rate_limit:
+  scope: per-client-route
+  default_window_ms: 1000
+  default_max_requests: 20
+external_protocols:
+  - rest-json
+  - grpc
+  - websocket
+  - mqtt
+  - test-loopback
+audit:
+  record_rate_limited_requests: true
+  record_payload_rejections: true
+  record_service_unavailable: true
+unsupported:
+  direct_cloud_backend: deferred
+  arbitrary_command_invocation: rejected
+  generated_public_ara_api: rejected

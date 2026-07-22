@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+
+schema: openautosar.local-ipc.policy.v1
+transport: unix-domain-socket
+runtime_mode: deterministic-binding
+socket_root: /run/openautosar/ipc
+default_permissions: "0660"
+bounded_queues:
+  default_depth: 4
+  maximum_depth: 64
+  overflow_policy: reject-newest
+peer_identity:
+  verify_process_identity: true
+  verify_machine_identity: true
+  verify_security_label: true
+timeout_handling:
+  default_poll_timeout_ms: 100
+  endpoint_lease_timeout_ms: 1000
+backpressure:
+  report_queue_full: true
+  preserve_oldest_on_reject: true
+restart_recovery:
+  clear_subscriber_queues: true
+  increment_provider_generation: true
+  stale_endpoint_cleanup: true
+deterministic_test_hooks:
+  - drop-next-frame
+  - force-timeout
+  - mark-endpoint-stale

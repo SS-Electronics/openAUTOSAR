@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.supplier-input-contract.v1
+profile_id: generic-supplier
+status: controlled-template
+
+input_items:
+  - system and service ARXML
+  - service interface definitions
+  - network design
+  - diagnostics specification
+  - machine resource budgets
+  - cybersecurity requirements
+  - safety requirements
+  - update strategy
+  - software-cluster allocation
+  - coding/static-analysis rules
+  - release naming
+  - accepted tool versions
+  - integration test specifications
+  - supplier quality gates
+
+contract_controls:
+  schema_identification: required
+  source_provenance: required
+  namespace_normalization: required
+  unsupported_element_report: required
+  mapping_decisions: required
+  ambiguous_destructive_change_rejection: required

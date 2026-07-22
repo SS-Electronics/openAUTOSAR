@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: MIT
+schema: openautosar.verification.fault-injection.v1
+status: controlled
+target: qemu-x86_64
+scenarios:
+  - name: process crash
+    owner: execution-management
+    evidence: tests/unit/process_launcher_test.cpp
+    expected_response: restart budget and PHM reporting
+  - name: hang
+    owner: platform-health-management
+    evidence: tests/unit/platform_health_test.cpp
+    expected_response: deadline supervision failure
+  - name: deadline violation
+    owner: platform-health-management
+    evidence: tests/unit/platform_health_test.cpp
+    expected_response: supervision degradation
+  - name: memory exhaustion
+    owner: process-launcher
+    evidence: meta-openautosar process launcher policy
+    expected_response: cgroup memory limit enforcement
+  - name: disk full
+    owner: persistency
+    evidence: tests/unit/persistency_test.cpp
+    expected_response: bounded error result
+  - name: corrupt manifest
+    owner: model-toolchain
+    evidence: tests/python/test_oa_cli_model.py
+    expected_response: model validation failure
+  - name: invalid signature
+    owner: update-management
+    evidence: tests/unit/update_management_test.cpp
+    expected_response: package rejection
+  - name: network loss
+    owner: time-network-management
+    evidence: tests/unit/time_network_management_test.cpp
+    expected_response: interface degradation
+  - name: packet duplication
+    owner: e2e-protection
+    evidence: tests/unit/e2e_protection_test.cpp
+    expected_response: E2E counter rejection
+  - name: clock loss
+    owner: time-network-management
+    evidence: tests/unit/time_network_management_test.cpp
+    expected_response: clock-domain loss handling
+  - name: service flapping
+    owner: registry
+    evidence: tests/unit/registry_test.cpp
+    expected_response: stale lease cleanup and rediscovery
+  - name: persistency corruption
+    owner: persistency
+    evidence: tests/unit/persistency_test.cpp
+    expected_response: corrupt value rejection and recovery
+  - name: interrupted update
+    owner: vehicle-update-management
+    evidence: tests/unit/vehicle_update_management_test.cpp
+    expected_response: campaign rollback
+  - name: power loss during activation
+    owner: update-management
+    evidence: tests/unit/update_management_test.cpp
+    expected_response: boot attempt budget and rollback
+  - name: watchdog failure
+    owner: platform-health-management
+    evidence: tests/unit/platform_health_test.cpp
+    expected_response: PHM escalation
+  - name: HSM unavailable
+    owner: cryptography
+    evidence: tests/unit/cryptography_test.cpp
+    expected_response: key operation failure
