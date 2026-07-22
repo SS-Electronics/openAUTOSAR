@@ -67,10 +67,47 @@ class EventModel:
 
 
 @dataclass(frozen=True, slots=True)
+class MethodModel:
+    name: str
+    request_fields: tuple[FieldModel, ...]
+    response_fields: tuple[FieldModel, ...]
+    fire_and_forget: bool
+    errors: tuple["MethodErrorModel", ...]
+    source: SourceRef
+
+
+@dataclass(frozen=True, slots=True)
+class MethodErrorModel:
+    name: str
+    code: int
+    description: str
+    source: SourceRef
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceFieldModel:
+    name: str
+    type_name: str
+    getter: bool
+    setter: bool
+    notifier: bool
+    source: SourceRef
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceTriggerModel:
+    name: str
+    source: SourceRef
+
+
+@dataclass(frozen=True, slots=True)
 class ServiceModel:
     name: str
     instance: str
     events: tuple[EventModel, ...]
+    methods: tuple[MethodModel, ...]
+    service_fields: tuple[ServiceFieldModel, ...]
+    triggers: tuple[ServiceTriggerModel, ...]
     source: SourceRef
 
 
@@ -205,19 +242,56 @@ def _json_service(
 
     name = _required_string(path, data, "name", f"{pointer}/name")
     instance = _required_string(path, data, "instance", f"{pointer}/instance")
-    events_data = data.get("events")
-    if not isinstance(events_data, list) or not events_data:
-        raise ModelError(path, f"{pointer}/events", "service must define at least one event")
+    events_data = data.get("events", [])
+    if not isinstance(events_data, list):
+        raise ModelError(path, f"{pointer}/events", "service events must be a list")
+
+    methods_data = data.get("methods", [])
+    if not isinstance(methods_data, list):
+        raise ModelError(path, f"{pointer}/methods", "service methods must be a list")
+
+    fields_data = data.get("fields", [])
+    if not isinstance(fields_data, list):
+        raise ModelError(path, f"{pointer}/fields", "service fields must be a list")
+
+    triggers_data = data.get("triggers", [])
+    if not isinstance(triggers_data, list):
+        raise ModelError(path, f"{pointer}/triggers", "service triggers must be a list")
+
+    if not events_data and not methods_data and not fields_data and not triggers_data:
+        raise ModelError(
+            path,
+            pointer,
+            "service must define at least one event, method, field, or trigger",
+        )
 
     events: list[EventModel] = []
     for event_index, event_data in enumerate(events_data):
         event_pointer = f"{pointer}/events/{event_index}"
         events.append(_json_event(root, path, event_data, event_pointer))
 
+    methods: list[MethodModel] = []
+    for method_index, method_data in enumerate(methods_data):
+        method_pointer = f"{pointer}/methods/{method_index}"
+        methods.append(_json_method(root, path, method_data, method_pointer))
+
+    service_fields: list[ServiceFieldModel] = []
+    for field_index, field_data in enumerate(fields_data):
+        field_pointer = f"{pointer}/fields/{field_index}"
+        service_fields.append(_json_service_field(root, path, field_data, field_pointer))
+
+    triggers: list[ServiceTriggerModel] = []
+    for trigger_index, trigger_data in enumerate(triggers_data):
+        trigger_pointer = f"{pointer}/triggers/{trigger_index}"
+        triggers.append(_json_service_trigger(root, path, trigger_data, trigger_pointer))
+
     return ServiceModel(
         name=name,
         instance=instance,
         events=tuple(events),
+        methods=tuple(methods),
+        service_fields=tuple(service_fields),
+        triggers=tuple(triggers),
         source=_source_ref(root, path, pointer),
     )
 
@@ -246,6 +320,122 @@ def _json_event(root: Path, path: Path, data: Any, pointer: str) -> EventModel:
         source=_source_ref(root, path, pointer),
         e2e=e2e,
     )
+
+
+def _json_method(root: Path, path: Path, data: Any, pointer: str) -> MethodModel:
+    if not isinstance(data, dict):
+        raise ModelError(path, pointer, "method entry must be an object")
+
+    name = _required_string(path, data, "name", f"{pointer}/name")
+    request_fields = _json_field_list(
+        root,
+        path,
+        data.get("request", []),
+        f"{pointer}/request",
+        "method request",
+        False,
+    )
+    response_fields = _json_field_list(
+        root,
+        path,
+        data.get("response", []),
+        f"{pointer}/response",
+        "method response",
+        False,
+    )
+    fire_and_forget = _optional_bool(
+        path,
+        data,
+        "fire_and_forget",
+        False,
+        f"{pointer}/fire_and_forget",
+    )
+    errors_data = data.get("errors", [])
+    if not isinstance(errors_data, list):
+        raise ModelError(path, f"{pointer}/errors", "method errors must be a list")
+
+    errors: list[MethodErrorModel] = []
+    for error_index, error_data in enumerate(errors_data):
+        error_pointer = f"{pointer}/errors/{error_index}"
+        errors.append(_json_method_error(root, path, error_data, error_pointer))
+
+    return MethodModel(
+        name=name,
+        request_fields=tuple(request_fields),
+        response_fields=tuple(response_fields),
+        fire_and_forget=fire_and_forget,
+        errors=tuple(errors),
+        source=_source_ref(root, path, pointer),
+    )
+
+
+def _json_method_error(
+    root: Path,
+    path: Path,
+    data: Any,
+    pointer: str,
+) -> MethodErrorModel:
+    if not isinstance(data, dict):
+        raise ModelError(path, pointer, "method error entry must be an object")
+
+    return MethodErrorModel(
+        name=_required_string(path, data, "name", f"{pointer}/name"),
+        code=_required_int(path, data, "code", f"{pointer}/code"),
+        description=_optional_string(path, data, "description", "", f"{pointer}/description"),
+        source=_source_ref(root, path, pointer),
+    )
+
+
+def _json_service_field(
+    root: Path,
+    path: Path,
+    data: Any,
+    pointer: str,
+) -> ServiceFieldModel:
+    if not isinstance(data, dict):
+        raise ModelError(path, pointer, "service field entry must be an object")
+
+    return ServiceFieldModel(
+        name=_required_string(path, data, "name", f"{pointer}/name"),
+        type_name=_required_string(path, data, "type", f"{pointer}/type"),
+        getter=_optional_bool(path, data, "getter", True, f"{pointer}/getter"),
+        setter=_optional_bool(path, data, "setter", True, f"{pointer}/setter"),
+        notifier=_optional_bool(path, data, "notifier", True, f"{pointer}/notifier"),
+        source=_source_ref(root, path, pointer),
+    )
+
+
+def _json_service_trigger(
+    root: Path,
+    path: Path,
+    data: Any,
+    pointer: str,
+) -> ServiceTriggerModel:
+    if not isinstance(data, dict):
+        raise ModelError(path, pointer, "service trigger entry must be an object")
+
+    return ServiceTriggerModel(
+        name=_required_string(path, data, "name", f"{pointer}/name"),
+        source=_source_ref(root, path, pointer),
+    )
+
+
+def _json_field_list(
+    root: Path,
+    path: Path,
+    data: Any,
+    pointer: str,
+    label: str,
+    require_non_empty: bool,
+) -> list[FieldModel]:
+    if not isinstance(data, list) or (require_non_empty and not data):
+        raise ModelError(path, pointer, f"{label} must define a field list")
+
+    fields: list[FieldModel] = []
+    for field_index, field_data in enumerate(data):
+        field_pointer = f"{pointer}/{field_index}"
+        fields.append(_json_field(root, path, field_data, field_pointer))
+    return fields
 
 
 def _json_field(root: Path, path: Path, data: Any, pointer: str) -> FieldModel:
@@ -327,6 +517,9 @@ def _parse_arxml_model(root: Path, path: Path) -> list[ServiceModel]:
                 name=name,
                 instance=instance,
                 events=tuple(events),
+                methods=tuple(),
+                service_fields=tuple(),
+                triggers=tuple(),
                 source=_source_ref(root, path, _xml_pointer(service_node)),
             )
         )
@@ -391,6 +584,73 @@ def _validate_bundle(bundle: ModelBundle) -> None:
             if event.e2e is not None:
                 _validate_e2e(event.e2e)
 
+        method_names: set[str] = set()
+        for method in service.methods:
+            _validate_identifier(method.source, method.name, "method name")
+            if method.name in method_names:
+                raise _source_error(method.source, "duplicate method name")
+            method_names.add(method.name)
+            if method.fire_and_forget and method.response_fields:
+                raise _source_error(
+                    method.source,
+                    "fire-and-forget method cannot define response fields",
+                )
+            if method.fire_and_forget and method.errors:
+                raise _source_error(
+                    method.source,
+                    "fire-and-forget method cannot define errors",
+                )
+            _validate_method_fields(method.request_fields, "request field")
+            _validate_method_fields(method.response_fields, "response field")
+            _validate_method_errors(method.errors)
+
+        service_field_names: set[str] = set()
+        for field in service.service_fields:
+            _validate_identifier(field.source, field.name, "service field name")
+            if field.name in service_field_names:
+                raise _source_error(field.source, "duplicate service field name")
+            if field.type_name not in SUPPORTED_FIELD_TYPES:
+                raise _source_error(field.source, f"unsupported field type: {field.type_name}")
+            if not field.getter and not field.setter and not field.notifier:
+                raise _source_error(
+                    field.source,
+                    "service field must enable getter, setter, or notifier",
+                )
+            service_field_names.add(field.name)
+
+        trigger_names: set[str] = set()
+        for trigger in service.triggers:
+            _validate_identifier(trigger.source, trigger.name, "service trigger name")
+            if trigger.name in trigger_names:
+                raise _source_error(trigger.source, "duplicate service trigger name")
+            trigger_names.add(trigger.name)
+
+
+def _validate_method_fields(fields: tuple[FieldModel, ...], label: str) -> None:
+    field_names: set[str] = set()
+    for field in fields:
+        _validate_identifier(field.source, field.name, label)
+        if field.name in field_names:
+            raise _source_error(field.source, f"duplicate {label} name")
+        if field.type_name not in SUPPORTED_FIELD_TYPES:
+            raise _source_error(field.source, f"unsupported field type: {field.type_name}")
+        field_names.add(field.name)
+
+
+def _validate_method_errors(errors: tuple[MethodErrorModel, ...]) -> None:
+    error_names: set[str] = set()
+    error_codes: set[int] = set()
+    for error in errors:
+        _validate_identifier(error.source, error.name, "method error name")
+        if error.name in error_names:
+            raise _source_error(error.source, "duplicate method error name")
+        if error.code in error_codes:
+            raise _source_error(error.source, "duplicate method error code")
+        if error.code <= 0 or error.code > 0xFFFFFFFF:
+            raise _source_error(error.source, "method error code must fit uint32 and be non-zero")
+        error_names.add(error.name)
+        error_codes.add(error.code)
+
 
 def _validate_e2e(e2e: E2EProtectionModel) -> None:
     if e2e.profile not in E2E_PROFILES:
@@ -434,6 +694,21 @@ def _required_string(path: Path, data: dict[str, Any], key: str, pointer: str) -
     return value
 
 
+def _optional_string(
+    path: Path,
+    data: dict[str, Any],
+    key: str,
+    default: str,
+    pointer: str,
+) -> str:
+    if key not in data:
+        return default
+    value = data.get(key)
+    if not isinstance(value, str):
+        raise ModelError(path, pointer, "value must be a string")
+    return value
+
+
 def _required_int(path: Path, data: dict[str, Any], key: str, pointer: str) -> int:
     value = data.get(key)
     if not isinstance(value, int) or isinstance(value, bool):
@@ -451,6 +726,21 @@ def _optional_int(
     if key not in data:
         return default
     return _required_int(path, data, key, pointer)
+
+
+def _optional_bool(
+    path: Path,
+    data: dict[str, Any],
+    key: str,
+    default: bool,
+    pointer: str,
+) -> bool:
+    if key not in data:
+        return default
+    value = data.get(key)
+    if not isinstance(value, bool):
+        raise ModelError(path, pointer, "value must be a boolean")
+    return value
 
 
 def _source_ref(root: Path, path: Path, pointer: str) -> SourceRef:
@@ -494,9 +784,12 @@ def _last_ref_segment(value: str) -> str:
 def _service_manifest(service: ServiceModel) -> dict[str, Any]:
     return {
         "events": [_event_manifest(event) for event in service.events],
+        "fields": [_service_field_manifest(field) for field in service.service_fields],
         "instance": service.instance,
+        "methods": [_method_manifest(method) for method in service.methods],
         "name": service.name,
         "source": {"path": service.source.path, "pointer": service.source.pointer},
+        "triggers": [_service_trigger_manifest(trigger) for trigger in service.triggers],
     }
 
 
@@ -522,6 +815,53 @@ def _event_manifest(event: EventModel) -> dict[str, Any]:
     return result
 
 
+def _method_manifest(method: MethodModel) -> dict[str, Any]:
+    return {
+        "errors": [
+            {
+                "code": error.code,
+                "description": error.description,
+                "name": error.name,
+                "source": {"path": error.source.path, "pointer": error.source.pointer},
+            }
+            for error in method.errors
+        ],
+        "fire_and_forget": method.fire_and_forget,
+        "name": method.name,
+        "request": {
+            "fields": [
+                {"name": field.name, "type": field.type_name}
+                for field in method.request_fields
+            ],
+        },
+        "response": {
+            "fields": [
+                {"name": field.name, "type": field.type_name}
+                for field in method.response_fields
+            ],
+        },
+        "source": {"path": method.source.path, "pointer": method.source.pointer},
+    }
+
+
+def _service_field_manifest(field: ServiceFieldModel) -> dict[str, Any]:
+    return {
+        "getter": field.getter,
+        "name": field.name,
+        "notifier": field.notifier,
+        "setter": field.setter,
+        "source": {"path": field.source.path, "pointer": field.source.pointer},
+        "type": field.type_name,
+    }
+
+
+def _service_trigger_manifest(trigger: ServiceTriggerModel) -> dict[str, Any]:
+    return {
+        "name": trigger.name,
+        "source": {"path": trigger.source.path, "pointer": trigger.source.pointer},
+    }
+
+
 def _service_summary(service: ServiceModel) -> dict[str, Any]:
     return {
         "e2e_event_count": sum(1 for event in service.events if event.e2e is not None),
@@ -534,20 +874,44 @@ def _service_summary(service: ServiceModel) -> dict[str, Any]:
             }
             for event in service.events
         ],
+        "field_count": len(service.service_fields),
+        "fields": [
+            {
+                "getter": field.getter,
+                "name": field.name,
+                "notifier": field.notifier,
+                "setter": field.setter,
+                "type": field.type_name,
+            }
+            for field in service.service_fields
+        ],
         "instance": service.instance,
+        "method_count": len(service.methods),
+        "methods": [
+            {
+                "fire_and_forget": method.fire_and_forget,
+                "error_count": len(method.errors),
+                "errors": [
+                    {"code": error.code, "name": error.name}
+                    for error in method.errors
+                ],
+                "name": method.name,
+                "request_field_count": len(method.request_fields),
+                "response_field_count": len(method.response_fields),
+            }
+            for method in service.methods
+        ],
         "name": service.name,
         "source": service.source.path,
+        "trigger_count": len(service.triggers),
+        "triggers": [{"name": trigger.name} for trigger in service.triggers],
     }
 
 
 def _service_header(service: ServiceModel) -> str:
-    event_blocks = []
+    blocks = []
     for event in service.events:
-        fields = "\n".join(
-            f"  {SUPPORTED_FIELD_TYPES[field.type_name]} {field.name}{{}};"
-            for field in event.fields
-        )
-        block = f"struct {event.name} final {{\n{fields}\n}};\n"
+        block = _struct_block(event.name, event.fields)
         if event.e2e is not None:
             prefix = f"k{service.name}{event.name}E2E"
             block += (
@@ -564,7 +928,46 @@ def _service_header(service: ServiceModel) -> str:
                 f"inline constexpr std::string_view {prefix}Profile = "
                 f"\"{event.e2e.profile}\";\n"
             )
-        event_blocks.append(block)
+        blocks.append(block)
+
+    for method in service.methods:
+        blocks.append(_struct_block(f"{method.name}Request", method.request_fields))
+        if not method.fire_and_forget:
+            blocks.append(_struct_block(f"{method.name}Response", method.response_fields))
+        if method.errors:
+            blocks.append(_method_error_enum_block(method))
+
+    for field in service.service_fields:
+        blocks.append(_single_field_struct_block(f"{field.name}Field", field))
+
+    event_constants = "".join(
+        f"inline constexpr std::string_view k{service.name}{event.name}EventName = "
+        f"\"{event.name}\";\n"
+        for event in service.events
+    )
+    method_constants = "".join(
+        f"inline constexpr std::string_view k{service.name}{method.name}MethodName = "
+        f"\"{method.name}\";\n"
+        for method in service.methods
+    )
+    method_error_constants = "".join(
+        f"inline constexpr std::string_view k{service.name}{method.name}ErrorDomain = "
+        f"\"{service.name}.{method.name}\";\n"
+        for method in service.methods
+        if method.errors
+    )
+    field_constants = "".join(
+        f"inline constexpr std::string_view k{service.name}{field.name}FieldName = "
+        f"\"{field.name}\";\n"
+        for field in service.service_fields
+    )
+    trigger_constants = "".join(
+        f"inline constexpr std::string_view k{service.name}{trigger.name}TriggerName = "
+        f"\"{trigger.name}\";\n"
+        for trigger in service.triggers
+    )
+    proxy_block = _proxy_class_block(service)
+    skeleton_block = _skeleton_class_block(service)
 
     return (
         "// SPDX-License-Identifier: MIT\n"
@@ -572,8 +975,15 @@ def _service_header(service: ServiceModel) -> str:
         "\n"
         "#pragma once\n"
         "\n"
+        '#include "openautosar/com/service_registry.h"\n'
+        '#include "openautosar/core/result.h"\n'
+        "\n"
+        "#include <cstddef>\n"
         "#include <cstdint>\n"
+        "#include <string>\n"
         "#include <string_view>\n"
+        "#include <utility>\n"
+        "#include <vector>\n"
         "\n"
         "namespace openautosar::generated {\n"
         "\n"
@@ -581,10 +991,326 @@ def _service_header(service: ServiceModel) -> str:
         f"  \"{service.name}\";\n"
         f"inline constexpr std::string_view k{service.name}Instance =\n"
         f"  \"{service.instance}\";\n"
+        f"{event_constants}"
+        f"{method_constants}"
+        f"{method_error_constants}"
+        f"{field_constants}"
+        f"{trigger_constants}"
         "\n"
-        + "\n".join(event_blocks)
+        + "\n".join(blocks)
+        + proxy_block
+        + skeleton_block
         + "}  // namespace openautosar::generated\n"
     )
+
+
+def _struct_block(name: str, fields: tuple[FieldModel, ...]) -> str:
+    if not fields:
+        return f"struct {name} final {{}};\n"
+
+    fields_text = "\n".join(
+        f"  {SUPPORTED_FIELD_TYPES[field.type_name]} {field.name}{{}};"
+        for field in fields
+    )
+    return f"struct {name} final {{\n{fields_text}\n}};\n"
+
+
+def _single_field_struct_block(name: str, field: ServiceFieldModel) -> str:
+    return (
+        f"struct {name} final {{\n"
+        f"  {SUPPORTED_FIELD_TYPES[field.type_name]} value{{}};\n"
+        "};\n"
+    )
+
+
+def _method_error_enum_block(method: MethodModel) -> str:
+    values = "\n".join(
+        f"  {error.name} = {error.code}U,"
+        for error in method.errors
+    )
+    return f"enum class {method.name}Error : std::uint32_t {{\n{values}\n}};\n"
+
+
+def _proxy_class_block(service: ServiceModel) -> str:
+    class_name = f"{service.name}Proxy"
+    lines = [
+        f"class {class_name} final {{",
+        "public:",
+        f"  {class_name}(",
+        "    com::ServiceRegistry& registry,",
+        "    com::ServiceIdentifier service) noexcept",
+        "      : registry_(registry), service_(service) {}",
+        "",
+    ]
+    for event in service.events:
+        lines.extend(
+            [
+                f"  [[nodiscard]] core::Result<com::Subscription> Subscribe{event.name}(",
+                "    std::size_t queue_depth) {",
+                "    return registry_.Subscribe(",
+                "      service_,",
+                f"      std::string(k{service.name}{event.name}EventName),",
+                "      queue_depth);",
+                "  }",
+                "",
+                f"  [[nodiscard]] core::Result<com::EventSample> Poll{event.name}(",
+                "    std::uint64_t subscription_id) {",
+                "    return registry_.Poll(subscription_id);",
+                "  }",
+                "",
+            ]
+        )
+    for trigger in service.triggers:
+        lines.extend(
+            [
+                f"  [[nodiscard]] core::Result<com::Subscription> Subscribe{trigger.name}Trigger(",
+                "    std::size_t queue_depth) {",
+                "    return registry_.SubscribeTrigger(",
+                "      service_,",
+                f"      std::string(k{service.name}{trigger.name}TriggerName),",
+                "      queue_depth);",
+                "  }",
+                "",
+                f"  [[nodiscard]] core::Result<com::TriggerActivation> Poll{trigger.name}Trigger(",
+                "    std::uint64_t subscription_id) {",
+                "    return registry_.PollTrigger(subscription_id);",
+                "  }",
+                "",
+            ]
+        )
+    for field in service.service_fields:
+        if field.getter:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::FieldValue> Get{field.name}() const {{",
+                    "    return registry_.GetField(",
+                    "      service_,",
+                    f"      std::string(k{service.name}{field.name}FieldName));",
+                    "  }",
+                    "",
+                ]
+            )
+        if field.setter:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::FieldValue> Set{field.name}(",
+                    "    std::vector<std::uint8_t> payload) {",
+                    "    return registry_.SetField({",
+                    "      .service = service_,",
+                    f"      .field_name = std::string(k{service.name}{field.name}FieldName),",
+                    "      .payload = std::move(payload),",
+                    "    });",
+                    "  }",
+                    "",
+                ]
+            )
+        if field.notifier:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::Subscription> Subscribe{field.name}Field(",
+                    "    std::size_t queue_depth) {",
+                    "    return registry_.SubscribeField(",
+                    "      service_,",
+                    f"      std::string(k{service.name}{field.name}FieldName),",
+                    "      queue_depth);",
+                    "  }",
+                    "",
+                    f"  [[nodiscard]] core::Result<com::FieldValue> Poll{field.name}Field(",
+                    "    std::uint64_t subscription_id) {",
+                    "    return registry_.PollField(subscription_id);",
+                    "  }",
+                    "",
+                ]
+            )
+    for method in service.methods:
+        if method.fire_and_forget:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::MethodCall> FireAndForget{method.name}(",
+                    "    std::vector<std::uint8_t> payload,",
+                    "    std::uint64_t correlation_id = 0U) {",
+                    "    return registry_.SubmitMethodCall({",
+                    "      .service = service_,",
+                    f"      .method_name = std::string(k{service.name}{method.name}MethodName),",
+                    "      .payload = std::move(payload),",
+                    "      .correlation_id = correlation_id,",
+                    "      .expects_response = false,",
+                    "    });",
+                    "  }",
+                    "",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::MethodCall> Call{method.name}(",
+                    "    std::vector<std::uint8_t> payload,",
+                    "    std::uint64_t correlation_id = 0U) {",
+                    "    return registry_.SubmitMethodCall({",
+                    "      .service = service_,",
+                    f"      .method_name = std::string(k{service.name}{method.name}MethodName),",
+                    "      .payload = std::move(payload),",
+                    "      .correlation_id = correlation_id,",
+                    "    });",
+                    "  }",
+                    "",
+                    f"  [[nodiscard]] core::Result<com::MethodCallFuture> Call{method.name}Future(",
+                    "    std::vector<std::uint8_t> payload,",
+                    "    std::uint64_t correlation_id = 0U) {",
+                    "    return registry_.SubmitMethodCallFuture({",
+                    "      .service = service_,",
+                    f"      .method_name = std::string(k{service.name}{method.name}MethodName),",
+                    "      .payload = std::move(payload),",
+                    "      .correlation_id = correlation_id,",
+                    "    });",
+                    "  }",
+                    "",
+                    f"  [[nodiscard]] core::Result<com::MethodResult> Take{method.name}Result(",
+                    "    std::uint64_t correlation_id) {",
+                    "    return registry_.TakeMethodResult(",
+                    "      service_,",
+                    f"      std::string(k{service.name}{method.name}MethodName),",
+                    "      correlation_id);",
+                    "  }",
+                    "",
+                ]
+            )
+    lines.extend(
+        [
+            "private:",
+            "  com::ServiceRegistry& registry_;",
+            "  com::ServiceIdentifier service_{};",
+            "};",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _skeleton_class_block(service: ServiceModel) -> str:
+    class_name = f"{service.name}Skeleton"
+    lines = [
+        f"class {class_name} final {{",
+        "public:",
+        f"  {class_name}(",
+        "    com::ServiceRegistry& registry,",
+        "    com::ServiceOffer offer)",
+        "      : registry_(registry), offer_(std::move(offer)) {}",
+        "",
+        "  [[nodiscard]] core::Result<com::ServiceOffer> Offer() {",
+        "    return registry_.OfferService(offer_);",
+        "  }",
+        "",
+        "  [[nodiscard]] core::Result<bool> StopOffer() {",
+        "    return registry_.StopOffer(offer_.service);",
+        "  }",
+        "",
+    ]
+    for event in service.events:
+        lines.extend(
+            [
+                f"  [[nodiscard]] core::Result<std::uint64_t> Publish{event.name}(",
+                "    std::vector<std::uint8_t> payload) {",
+                "    return registry_.Publish({",
+                "      .service = offer_.service,",
+                f"      .event_name = std::string(k{service.name}{event.name}EventName),",
+                "      .payload = std::move(payload),",
+                "    });",
+                "  }",
+                "",
+            ]
+        )
+    for trigger in service.triggers:
+        lines.extend(
+            [
+                "  [[nodiscard]] core::Result<com::TriggerActivation> "
+                f"Fire{trigger.name}Trigger() {{",
+                "    return registry_.FireTrigger({",
+                "      .service = offer_.service,",
+                f"      .trigger_name = std::string(k{service.name}{trigger.name}TriggerName),",
+                "    });",
+                "  }",
+                "",
+            ]
+        )
+    for field in service.service_fields:
+        lines.extend(
+            [
+                f"  [[nodiscard]] core::Result<com::FieldValue> Update{field.name}(",
+                "    std::vector<std::uint8_t> payload) {",
+                "    return registry_.SetField({",
+                "      .service = offer_.service,",
+                f"      .field_name = std::string(k{service.name}{field.name}FieldName),",
+                "      .payload = std::move(payload),",
+                "    });",
+                "  }",
+                "",
+            ]
+        )
+    for method in service.methods:
+        lines.extend(
+            [
+                f"  [[nodiscard]] core::Result<com::MethodCall> Take{method.name}Call() {{",
+                "    return registry_.TakeMethodCall(",
+                "      offer_.service,",
+                f"      std::string(k{service.name}{method.name}MethodName));",
+                "  }",
+                "",
+            ]
+        )
+        if not method.fire_and_forget:
+            lines.extend(
+                [
+                    f"  [[nodiscard]] core::Result<com::MethodResult> Complete{method.name}(",
+                    "    std::vector<std::uint8_t> payload,",
+                    "    std::uint64_t correlation_id,",
+                    "    bool application_error = false) {",
+                    "    return registry_.CompleteMethodCall({",
+                    "      .service = offer_.service,",
+                    f"      .method_name = std::string(k{service.name}{method.name}MethodName),",
+                    "      .payload = std::move(payload),",
+                    "      .correlation_id = correlation_id,",
+                    "      .application_error = application_error,",
+                    "      .error_domain = {},",
+                    "      .error_code = 0U,",
+                    "    });",
+                    "  }",
+                    "",
+                ]
+            )
+            if method.errors:
+                lines.extend(
+                    [
+                        "  [[nodiscard]] core::Result<com::MethodResult> "
+                        f"Complete{method.name}Error(",
+                        f"    {method.name}Error error,",
+                        "    std::vector<std::uint8_t> payload,",
+                        "    std::uint64_t correlation_id) {",
+                        "    return registry_.CompleteMethodCall({",
+                        "      .service = offer_.service,",
+                        f"      .method_name = std::string(k{service.name}"
+                        f"{method.name}MethodName),",
+                        "      .payload = std::move(payload),",
+                        "      .correlation_id = correlation_id,",
+                        "      .application_error = true,",
+                        f"      .error_domain = std::string(k{service.name}"
+                        f"{method.name}ErrorDomain),",
+                        "      .error_code = static_cast<std::uint32_t>(error),",
+                        "    });",
+                        "  }",
+                        "",
+                    ]
+                )
+    lines.extend(
+        [
+            "private:",
+            "  com::ServiceRegistry& registry_;",
+            "  com::ServiceOffer offer_{};",
+            "};",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _traceability_records(
@@ -639,6 +1365,60 @@ def _traceability_records(
                     "element": f"field:{service.name}.{event.name}.{field.name}",
                     "source_path": field.source.path,
                     "source_pointer": field.source.pointer,
+                }
+            )
+    for field in service.service_fields:
+        records.append(
+            {
+                "artifact": header_path,
+                "element": f"service-field:{service.name}.{field.name}",
+                "source_path": field.source.path,
+                "source_pointer": field.source.pointer,
+            }
+        )
+    for trigger in service.triggers:
+        records.append(
+            {
+                "artifact": header_path,
+                "element": f"trigger:{service.name}.{trigger.name}",
+                "source_path": trigger.source.path,
+                "source_pointer": trigger.source.pointer,
+            }
+        )
+    for method in service.methods:
+        records.append(
+            {
+                "artifact": header_path,
+                "element": f"method:{service.name}.{method.name}",
+                "source_path": method.source.path,
+                "source_pointer": method.source.pointer,
+            }
+        )
+        for field in method.request_fields:
+            records.append(
+                {
+                    "artifact": header_path,
+                    "element": f"request-field:{service.name}.{method.name}.{field.name}",
+                    "source_path": field.source.path,
+                    "source_pointer": field.source.pointer,
+                }
+            )
+        for field in method.response_fields:
+            records.append(
+                {
+                    "artifact": header_path,
+                    "element": f"response-field:{service.name}.{method.name}.{field.name}",
+                    "source_path": field.source.path,
+                    "source_pointer": field.source.pointer,
+                }
+            )
+        for error in method.errors:
+            records.append(
+                {
+                    "artifact": header_path,
+                    "element": f"error:{service.name}.{method.name}.{error.name}",
+                    "source_path": error.source.path,
+                    "source_pointer": error.source.pointer,
                 }
             )
     return records

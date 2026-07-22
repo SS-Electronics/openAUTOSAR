@@ -29,6 +29,67 @@
           }
         ]
       }
+    ],
+    "fields": [
+      {
+        "name": "CalibrationMode",
+        "type": "uint8",
+        "getter": true,
+        "setter": true,
+        "notifier": true
+      }
+    ],
+    "triggers": [
+      {
+        "name": "ObstacleCleared"
+      }
+    ],
+    "methods": [
+      {
+        "name": "GetDistanceStatistics",
+        "request": [
+          {
+            "name": "window_ms",
+            "type": "uint16"
+          }
+        ],
+        "response": [
+          {
+            "name": "minimum_distance_mm",
+            "type": "uint16"
+          },
+          {
+            "name": "maximum_distance_mm",
+            "type": "uint16"
+          },
+          {
+            "name": "sample_count",
+            "type": "uint32"
+          }
+        ],
+        "errors": [
+          {
+            "name": "WindowUnavailable",
+            "code": 1,
+            "description": "The requested statistics window is not available"
+          },
+          {
+            "name": "SensorDegraded",
+            "code": 2,
+            "description": "Statistics are unavailable because sensor quality is degraded"
+          }
+        ]
+      },
+      {
+        "name": "ResetCalibration",
+        "fire_and_forget": true,
+        "request": [
+          {
+            "name": "calibration_slot",
+            "type": "uint8"
+          }
+        ]
+      }
     ]
   }
 }

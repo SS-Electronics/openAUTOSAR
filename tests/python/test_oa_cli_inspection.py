@@ -45,6 +45,10 @@ class InspectionCliTest(unittest.TestCase):
 
             services = self._run_json(root, "service", "list")
             self.assertEqual(services["services"][0]["name"], "UltrasonicDistanceService")
+            self.assertEqual(services["services"][0]["field_count"], 1)
+            self.assertEqual(services["services"][0]["fields"][0]["name"], "CalibrationMode")
+            self.assertEqual(services["services"][0]["trigger_count"], 1)
+            self.assertEqual(services["services"][0]["triggers"][0]["name"], "ObstacleCleared")
 
             watched = self._run_json(root, "service", "watch")
             self.assertEqual(watched["mode"], "snapshot")
@@ -194,6 +198,20 @@ class InspectionCliTest(unittest.TestCase):
                             "event_count": 1,
                             "e2e_event_count": 1,
                             "events": [{"name": "DistanceSample"}],
+                            "field_count": 1,
+                            "fields": [
+                                {
+                                    "name": "CalibrationMode",
+                                    "type": "uint8",
+                                    "getter": True,
+                                    "setter": True,
+                                    "notifier": True,
+                                }
+                            ],
+                            "method_count": 1,
+                            "methods": [{"name": "GetDistanceStatistics"}],
+                            "trigger_count": 1,
+                            "triggers": [{"name": "ObstacleCleared"}],
                         }
                     ],
                     "outputs": [{"name": "traceability"}],

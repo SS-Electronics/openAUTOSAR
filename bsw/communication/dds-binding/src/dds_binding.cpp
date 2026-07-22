@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <string_view>
 #include <utility>
 
 namespace openautosar::dds_binding {
@@ -13,6 +14,18 @@ namespace {
 inline constexpr std::array<std::uint8_t, 4U> kSampleEnvelopeMagic{'O', 'A', 'D', 'S'};
 inline constexpr std::uint8_t kSampleEnvelopeVersion{1U};
 inline constexpr std::size_t kSampleEnvelopeHeaderSize{22U};
+inline constexpr std::array<std::uint8_t, 4U> kMethodEnvelopeMagic{'O', 'A', 'D', 'M'};
+inline constexpr std::uint8_t kMethodEnvelopeVersion{1U};
+inline constexpr std::uint8_t kMethodEnvelopeResponseFlag{0x01U};
+inline constexpr std::uint8_t kMethodEnvelopeApplicationErrorFlag{0x02U};
+inline constexpr std::uint8_t kMethodEnvelopeNoResponseFlag{0x04U};
+inline constexpr std::size_t kMethodEnvelopeHeaderSize{32U};
+inline constexpr std::array<std::uint8_t, 4U> kMethodErrorPayloadMagic{'O', 'A', 'E', 'R'};
+inline constexpr std::uint8_t kMethodErrorPayloadVersion{1U};
+inline constexpr std::size_t kMethodErrorPayloadHeaderSize{16U};
+inline constexpr std::array<std::uint8_t, 4U> kFieldEnvelopeMagic{'O', 'A', 'D', 'F'};
+inline constexpr std::uint8_t kFieldEnvelopeVersion{1U};
+inline constexpr std::size_t kFieldEnvelopeHeaderSize{32U};
 
 [[nodiscard]] core::ErrorCode MakeError(const char* message) {
   return {"dds-binding", message};
@@ -120,6 +133,11 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
   bytes.push_back(static_cast<std::uint8_t>((value >> 24U) & 0xFFU));
 }
 
+void WriteU64Le(std::vector<std::uint8_t>& bytes, std::uint64_t value) {
+  WriteU32Le(bytes, static_cast<std::uint32_t>(value & 0xFFFFFFFFULL));
+  WriteU32Le(bytes, static_cast<std::uint32_t>(value >> 32U));
+}
+
 [[nodiscard]] std::uint16_t ReadU16Le(
   std::span<const std::uint8_t> bytes,
   std::size_t offset) {
@@ -136,6 +154,15 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
     static_cast<std::uint32_t>(bytes[offset + 1U]) << 8U |
     static_cast<std::uint32_t>(bytes[offset + 2U]) << 16U |
     static_cast<std::uint32_t>(bytes[offset + 3U]) << 24U);
+}
+
+[[nodiscard]] std::uint64_t ReadU64Le(
+  std::span<const std::uint8_t> bytes,
+  std::size_t offset) {
+  const auto low = ReadU32Le(bytes, offset);
+  const auto high = ReadU32Le(bytes, offset + 4U);
+  return static_cast<std::uint64_t>(low) |
+         (static_cast<std::uint64_t>(high) << 32U);
 }
 
 [[nodiscard]] core::Result<bool> ValidateMapping(const DdsTopicMapping& mapping) {
@@ -168,6 +195,114 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
   return std::all_of(entity_id.value.begin(), entity_id.value.end(), [](std::uint8_t value) {
     return value == 0U;
   });
+}
+
+[[nodiscard]] core::Result<bool> ValidateMethodCommon(const DdsMethodMapping& mapping) {
+  if (mapping.ara_service.interface_id == 0U || mapping.ara_service.instance_id == 0U) {
+    return core::Result<bool>::FromError(MakeError("ARA service identifier is invalid"));
+  }
+
+  if (mapping.ara_service.major_version == 0U) {
+    return core::Result<bool>::FromError(MakeError("service major version is invalid"));
+  }
+
+  if (mapping.method_name.empty()) {
+    return core::Result<bool>::FromError(MakeError("DDS method mapping contains an empty name"));
+  }
+
+  if (mapping.method_name.size() > std::numeric_limits<std::uint16_t>::max()) {
+    return core::Result<bool>::FromError(MakeError("DDS method mapping name is too long"));
+  }
+
+  auto qos_validation = ValidateQosProfile(mapping.qos);
+  if (!qos_validation) {
+    return core::Result<bool>::FromError(qos_validation.Error());
+  }
+
+  return core::Result<bool>::FromValue(true);
+}
+
+[[nodiscard]] core::Result<bool> ValidateMethodRequestMapping(
+  const DdsMethodMapping& mapping) {
+  auto common = ValidateMethodCommon(mapping);
+  if (!common) {
+    return common;
+  }
+
+  if (mapping.request_topic_name.empty() || mapping.request_type_name.empty()) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS method request mapping contains an empty name"));
+  }
+
+  if (mapping.request_topic_name.size() > std::numeric_limits<std::uint16_t>::max() ||
+      mapping.request_type_name.size() > std::numeric_limits<std::uint16_t>::max()) {
+    return core::Result<bool>::FromError(MakeError("DDS method request mapping name is too long"));
+  }
+
+  if (IsAllZero(mapping.request_writer_id) || IsAllZero(mapping.request_reader_id)) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS method request endpoint id is invalid"));
+  }
+
+  return core::Result<bool>::FromValue(true);
+}
+
+[[nodiscard]] core::Result<bool> ValidateMethodResponseMapping(
+  const DdsMethodMapping& mapping) {
+  auto common = ValidateMethodCommon(mapping);
+  if (!common) {
+    return common;
+  }
+
+  if (mapping.response_topic_name.empty() || mapping.response_type_name.empty()) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS method response mapping contains an empty name"));
+  }
+
+  if (mapping.response_topic_name.size() > std::numeric_limits<std::uint16_t>::max() ||
+      mapping.response_type_name.size() > std::numeric_limits<std::uint16_t>::max()) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS method response mapping name is too long"));
+  }
+
+  if (IsAllZero(mapping.response_writer_id) || IsAllZero(mapping.response_reader_id)) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS method response endpoint id is invalid"));
+  }
+
+  return core::Result<bool>::FromValue(true);
+}
+
+[[nodiscard]] core::Result<bool> ValidateFieldMapping(const DdsFieldMapping& mapping) {
+  if (mapping.ara_service.interface_id == 0U || mapping.ara_service.instance_id == 0U) {
+    return core::Result<bool>::FromError(MakeError("ARA service identifier is invalid"));
+  }
+
+  if (mapping.ara_service.major_version == 0U) {
+    return core::Result<bool>::FromError(MakeError("service major version is invalid"));
+  }
+
+  if (mapping.field_name.empty() || mapping.topic_name.empty() || mapping.type_name.empty()) {
+    return core::Result<bool>::FromError(
+      MakeError("DDS field mapping contains an empty name"));
+  }
+
+  if (mapping.field_name.size() > std::numeric_limits<std::uint16_t>::max() ||
+      mapping.topic_name.size() > std::numeric_limits<std::uint16_t>::max() ||
+      mapping.type_name.size() > std::numeric_limits<std::uint16_t>::max()) {
+    return core::Result<bool>::FromError(MakeError("DDS field mapping name is too long"));
+  }
+
+  if (IsAllZero(mapping.writer_id) || IsAllZero(mapping.reader_id)) {
+    return core::Result<bool>::FromError(MakeError("DDS field endpoint id is invalid"));
+  }
+
+  auto qos_validation = ValidateQosProfile(mapping.qos);
+  if (!qos_validation) {
+    return core::Result<bool>::FromError(qos_validation.Error());
+  }
+
+  return core::Result<bool>::FromValue(true);
 }
 
 [[nodiscard]] core::Result<std::vector<std::uint8_t>> EncodeSamplePayload(
@@ -272,6 +407,394 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
   });
 }
 
+[[nodiscard]] core::Result<std::vector<std::uint8_t>> EncodeFieldPayload(
+  const DdsFieldMapping& mapping,
+  const com::FieldValue& value) {
+  if (value.service != mapping.ara_service) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("field value service does not match DDS mapping"));
+  }
+
+  if (value.field_name != mapping.field_name) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("field value name does not match DDS mapping"));
+  }
+
+  if (value.payload.empty()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("field value payload is empty"));
+  }
+
+  if (value.payload.size() > std::numeric_limits<std::uint32_t>::max()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS field payload length exceeds 32-bit field"));
+  }
+
+  std::vector<std::uint8_t> payload;
+  payload.reserve(
+    kFieldEnvelopeHeaderSize + mapping.topic_name.size() + mapping.type_name.size() +
+    mapping.field_name.size() + value.payload.size());
+  payload.insert(payload.end(), kFieldEnvelopeMagic.begin(), kFieldEnvelopeMagic.end());
+  payload.push_back(kFieldEnvelopeVersion);
+  payload.push_back(0U);
+  WriteU16Le(payload, static_cast<std::uint16_t>(mapping.topic_name.size()));
+  WriteU16Le(payload, static_cast<std::uint16_t>(mapping.type_name.size()));
+  WriteU16Le(payload, static_cast<std::uint16_t>(mapping.field_name.size()));
+  WriteU32Le(payload, mapping.ara_service.interface_id);
+  WriteU32Le(payload, mapping.ara_service.instance_id);
+  WriteU64Le(payload, value.sequence);
+  WriteU32Le(payload, static_cast<std::uint32_t>(value.payload.size()));
+  payload.insert(payload.end(), mapping.topic_name.begin(), mapping.topic_name.end());
+  payload.insert(payload.end(), mapping.type_name.begin(), mapping.type_name.end());
+  payload.insert(payload.end(), mapping.field_name.begin(), mapping.field_name.end());
+  payload.insert(payload.end(), value.payload.begin(), value.payload.end());
+  return core::Result<std::vector<std::uint8_t>>::FromValue(std::move(payload));
+}
+
+[[nodiscard]] core::Result<com::FieldValue> DecodeFieldPayload(
+  const DdsFieldMapping& mapping,
+  std::span<const std::uint8_t> payload) {
+  if (payload.size() < kFieldEnvelopeHeaderSize) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field payload is shorter than envelope header"));
+  }
+
+  if (!std::equal(kFieldEnvelopeMagic.begin(), kFieldEnvelopeMagic.end(), payload.begin())) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field payload magic mismatch"));
+  }
+
+  if (payload[4U] != kFieldEnvelopeVersion || payload[5U] != 0U) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field payload version is unsupported"));
+  }
+
+  const auto topic_length = ReadU16Le(payload, 6U);
+  const auto type_length = ReadU16Le(payload, 8U);
+  const auto field_length = ReadU16Le(payload, 10U);
+  const auto interface_id = ReadU32Le(payload, 12U);
+  const auto instance_id = ReadU32Le(payload, 16U);
+  const auto field_sequence = ReadU64Le(payload, 20U);
+  const auto field_payload_length = ReadU32Le(payload, 28U);
+  const auto expected_size = kFieldEnvelopeHeaderSize + topic_length + type_length +
+                             field_length +
+                             static_cast<std::size_t>(field_payload_length);
+  if (payload.size() != expected_size) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field payload length mismatch"));
+  }
+
+  if (interface_id != mapping.ara_service.interface_id ||
+      instance_id != mapping.ara_service.instance_id) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field payload service id mismatch"));
+  }
+
+  const auto topic_begin =
+    payload.begin() + static_cast<std::ptrdiff_t>(kFieldEnvelopeHeaderSize);
+  const auto type_begin = topic_begin + topic_length;
+  const auto field_begin = type_begin + type_length;
+  const auto field_payload_begin = field_begin + field_length;
+  const std::string topic(topic_begin, type_begin);
+  const std::string type(type_begin, field_begin);
+  const std::string field(field_begin, field_payload_begin);
+
+  if (topic != mapping.topic_name || type != mapping.type_name ||
+      field != mapping.field_name) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field topic, type, or name does not match mapping"));
+  }
+
+  std::vector<std::uint8_t> field_payload(field_payload_begin, payload.end());
+  if (field_payload.empty()) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS serialized field payload is empty"));
+  }
+
+  return core::Result<com::FieldValue>::FromValue({
+    .service = mapping.ara_service,
+    .field_name = mapping.field_name,
+    .payload = std::move(field_payload),
+    .sequence = field_sequence,
+  });
+}
+
+struct DecodedMethodPayload final {
+  std::vector<std::uint8_t> payload;
+  std::uint64_t correlation_id{0U};
+  bool expects_response{true};
+  bool application_error{false};
+  std::string error_domain;
+  std::uint32_t error_code{0U};
+};
+
+struct MethodErrorPayload final {
+  std::vector<std::uint8_t> payload;
+  std::string error_domain;
+  std::uint32_t error_code{0U};
+  bool structured{false};
+};
+
+[[nodiscard]] bool HasMethodErrorPayloadMagic(std::span<const std::uint8_t> payload) {
+  return payload.size() >= kMethodErrorPayloadMagic.size() &&
+         std::equal(
+           kMethodErrorPayloadMagic.begin(),
+           kMethodErrorPayloadMagic.end(),
+           payload.begin());
+}
+
+[[nodiscard]] core::Result<std::vector<std::uint8_t>> EncodeMethodErrorPayload(
+  std::span<const std::uint8_t> method_payload,
+  bool application_error,
+  std::string_view error_domain,
+  std::uint32_t error_code) {
+  if (!application_error && method_payload.size() > std::numeric_limits<std::uint32_t>::max()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS method payload length exceeds 32-bit field"));
+  }
+
+  if (!application_error || (error_domain.empty() && error_code == 0U)) {
+    return core::Result<std::vector<std::uint8_t>>::FromValue(
+      std::vector<std::uint8_t>(method_payload.begin(), method_payload.end()));
+  }
+
+  if (error_domain.empty()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS method error domain is empty"));
+  }
+
+  if (error_domain.size() > std::numeric_limits<std::uint16_t>::max()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS method error domain is too long"));
+  }
+
+  if (method_payload.size() > std::numeric_limits<std::uint32_t>::max()) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS method error payload length exceeds 32-bit field"));
+  }
+
+  std::vector<std::uint8_t> payload;
+  payload.reserve(kMethodErrorPayloadHeaderSize + error_domain.size() + method_payload.size());
+  payload.insert(
+    payload.end(),
+    kMethodErrorPayloadMagic.begin(),
+    kMethodErrorPayloadMagic.end());
+  payload.push_back(kMethodErrorPayloadVersion);
+  payload.push_back(0U);
+  WriteU16Le(payload, static_cast<std::uint16_t>(error_domain.size()));
+  WriteU32Le(payload, error_code);
+  WriteU32Le(payload, static_cast<std::uint32_t>(method_payload.size()));
+  payload.insert(payload.end(), error_domain.begin(), error_domain.end());
+  payload.insert(payload.end(), method_payload.begin(), method_payload.end());
+  return core::Result<std::vector<std::uint8_t>>::FromValue(std::move(payload));
+}
+
+[[nodiscard]] core::Result<MethodErrorPayload> DecodeMethodErrorPayload(
+  std::span<const std::uint8_t> payload) {
+  if (!HasMethodErrorPayloadMagic(payload)) {
+    return core::Result<MethodErrorPayload>::FromValue({
+      .payload = std::vector<std::uint8_t>(payload.begin(), payload.end()),
+      .error_domain = {},
+      .error_code = 0U,
+      .structured = false,
+    });
+  }
+
+  if (payload.size() < kMethodErrorPayloadHeaderSize) {
+    return core::Result<MethodErrorPayload>::FromError(
+      MakeError("DDS method error payload is shorter than envelope header"));
+  }
+
+  if (payload[4U] != kMethodErrorPayloadVersion || payload[5U] != 0U) {
+    return core::Result<MethodErrorPayload>::FromError(
+      MakeError("DDS method error payload version is unsupported"));
+  }
+
+  const auto domain_length = ReadU16Le(payload, 6U);
+  const auto error_code = ReadU32Le(payload, 8U);
+  const auto value_length = ReadU32Le(payload, 12U);
+  const auto expected_size = kMethodErrorPayloadHeaderSize + domain_length +
+                             static_cast<std::size_t>(value_length);
+  if (payload.size() != expected_size) {
+    return core::Result<MethodErrorPayload>::FromError(
+      MakeError("DDS method error payload length mismatch"));
+  }
+
+  const auto domain_begin =
+    payload.begin() + static_cast<std::ptrdiff_t>(kMethodErrorPayloadHeaderSize);
+  const auto value_begin = domain_begin + domain_length;
+  return core::Result<MethodErrorPayload>::FromValue({
+    .payload = std::vector<std::uint8_t>(value_begin, payload.end()),
+    .error_domain = std::string(domain_begin, value_begin),
+    .error_code = error_code,
+    .structured = true,
+  });
+}
+
+[[nodiscard]] core::Result<std::vector<std::uint8_t>> EncodeMethodPayload(
+  const DdsMethodMapping& mapping,
+  std::span<const std::uint8_t> method_payload,
+  std::uint64_t correlation_id,
+  bool response,
+  bool expects_response,
+  bool application_error,
+  std::string_view error_domain = {},
+  std::uint32_t error_code = 0U) {
+  if (correlation_id == 0U) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      MakeError("DDS method correlation id is zero"));
+  }
+
+  auto encoded_method_payload = EncodeMethodErrorPayload(
+    method_payload,
+    application_error,
+    error_domain,
+    error_code);
+  if (!encoded_method_payload) {
+    return core::Result<std::vector<std::uint8_t>>::FromError(
+      encoded_method_payload.Error());
+  }
+  auto encoded_method_payload_value = std::move(encoded_method_payload.Value());
+
+  const std::string& topic = response ? mapping.response_topic_name
+                                      : mapping.request_topic_name;
+  const std::string& type = response ? mapping.response_type_name
+                                     : mapping.request_type_name;
+  std::vector<std::uint8_t> payload;
+  payload.reserve(
+    kMethodEnvelopeHeaderSize + topic.size() + type.size() + mapping.method_name.size() +
+    encoded_method_payload_value.size());
+  payload.insert(payload.end(), kMethodEnvelopeMagic.begin(), kMethodEnvelopeMagic.end());
+  payload.push_back(kMethodEnvelopeVersion);
+  payload.push_back(
+    static_cast<std::uint8_t>(
+      (response ? kMethodEnvelopeResponseFlag : 0U) |
+      (!expects_response ? kMethodEnvelopeNoResponseFlag : 0U) |
+      (application_error ? kMethodEnvelopeApplicationErrorFlag : 0U)));
+  WriteU16Le(payload, static_cast<std::uint16_t>(topic.size()));
+  WriteU16Le(payload, static_cast<std::uint16_t>(type.size()));
+  WriteU16Le(payload, static_cast<std::uint16_t>(mapping.method_name.size()));
+  WriteU32Le(payload, mapping.ara_service.interface_id);
+  WriteU32Le(payload, mapping.ara_service.instance_id);
+  WriteU64Le(payload, correlation_id);
+  WriteU32Le(payload, static_cast<std::uint32_t>(encoded_method_payload_value.size()));
+  payload.insert(payload.end(), topic.begin(), topic.end());
+  payload.insert(payload.end(), type.begin(), type.end());
+  payload.insert(payload.end(), mapping.method_name.begin(), mapping.method_name.end());
+  payload.insert(
+    payload.end(),
+    encoded_method_payload_value.begin(),
+    encoded_method_payload_value.end());
+  return core::Result<std::vector<std::uint8_t>>::FromValue(std::move(payload));
+}
+
+[[nodiscard]] core::Result<DecodedMethodPayload> DecodeMethodPayload(
+  const DdsMethodMapping& mapping,
+  std::span<const std::uint8_t> payload,
+  bool response) {
+  if (payload.size() < kMethodEnvelopeHeaderSize) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload is shorter than envelope header"));
+  }
+
+  if (!std::equal(kMethodEnvelopeMagic.begin(), kMethodEnvelopeMagic.end(), payload.begin())) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload magic mismatch"));
+  }
+
+  if (payload[4U] != kMethodEnvelopeVersion) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload version is unsupported"));
+  }
+
+  const bool payload_is_response = (payload[5U] & kMethodEnvelopeResponseFlag) != 0U;
+  const bool payload_expects_response = (payload[5U] & kMethodEnvelopeNoResponseFlag) == 0U;
+  const bool application_error =
+    (payload[5U] & kMethodEnvelopeApplicationErrorFlag) != 0U;
+  if (payload_is_response != response) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload direction does not match mapping"));
+  }
+
+  if (response && !payload_expects_response) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method response payload carries a no-response flag"));
+  }
+
+  if (!response && application_error) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method request payload carries an error flag"));
+  }
+
+  const auto topic_length = ReadU16Le(payload, 6U);
+  const auto type_length = ReadU16Le(payload, 8U);
+  const auto method_length = ReadU16Le(payload, 10U);
+  const auto interface_id = ReadU32Le(payload, 12U);
+  const auto instance_id = ReadU32Le(payload, 16U);
+  const auto correlation_id = ReadU64Le(payload, 20U);
+  const auto method_payload_length = ReadU32Le(payload, 28U);
+  const auto expected_size = kMethodEnvelopeHeaderSize + topic_length + type_length +
+                             method_length +
+                             static_cast<std::size_t>(method_payload_length);
+  if (payload.size() != expected_size) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload length mismatch"));
+  }
+
+  if (interface_id != mapping.ara_service.interface_id ||
+      instance_id != mapping.ara_service.instance_id) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload service id mismatch"));
+  }
+
+  if (correlation_id == 0U) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method payload correlation id is zero"));
+  }
+
+  const auto topic_begin =
+    payload.begin() + static_cast<std::ptrdiff_t>(kMethodEnvelopeHeaderSize);
+  const auto type_begin = topic_begin + topic_length;
+  const auto method_begin = type_begin + type_length;
+  const auto method_payload_begin = method_begin + method_length;
+  const std::string topic(topic_begin, type_begin);
+  const std::string type(type_begin, method_begin);
+  const std::string method(method_begin, method_payload_begin);
+  const std::string& expected_topic = response ? mapping.response_topic_name
+                                               : mapping.request_topic_name;
+  const std::string& expected_type = response ? mapping.response_type_name
+                                              : mapping.request_type_name;
+
+  if (topic != expected_topic || type != expected_type || method != mapping.method_name) {
+    return core::Result<DecodedMethodPayload>::FromError(
+      MakeError("DDS method topic, type, or name does not match mapping"));
+  }
+
+  std::vector<std::uint8_t> raw_method_payload(method_payload_begin, payload.end());
+  MethodErrorPayload decoded_error{
+    .payload = raw_method_payload,
+    .error_domain = {},
+    .error_code = 0U,
+    .structured = false,
+  };
+  if (response && application_error) {
+    auto decoded = DecodeMethodErrorPayload(raw_method_payload);
+    if (!decoded) {
+      return core::Result<DecodedMethodPayload>::FromError(decoded.Error());
+    }
+    decoded_error = std::move(decoded.Value());
+  }
+
+  return core::Result<DecodedMethodPayload>::FromValue({
+    .payload = std::move(decoded_error.payload),
+    .correlation_id = correlation_id,
+    .expects_response = payload_expects_response,
+    .application_error = application_error,
+    .error_domain = std::move(decoded_error.error_domain),
+    .error_code = decoded_error.error_code,
+  });
+}
+
 [[nodiscard]] core::Result<dds::rtps::RtpsMessage> BuildDataMessageForReader(
   const DdsTopicMapping& mapping,
   const dds::rtps::EntityId& reader_id,
@@ -316,6 +839,63 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
   return core::Result<dds::rtps::RtpsMessage>::FromValue(std::move(message));
 }
 
+[[nodiscard]] core::Result<dds::rtps::RtpsMessage> BuildMethodDataMessage(
+  const DdsMethodMapping& mapping,
+  const dds::rtps::EntityId& writer_id,
+  const dds::rtps::EntityId& reader_id,
+  std::vector<std::uint8_t> serialized_payload,
+  std::uint64_t sequence_number,
+  const char* overflow_error_message) {
+  if (IsAllZero(writer_id) || IsAllZero(reader_id)) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("DDS method DATA endpoint id is invalid"));
+  }
+
+  if (sequence_number == 0U) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("DDS method DATA sequence number is zero"));
+  }
+
+  dds::rtps::RtpsMessage message{
+    .vendor_id = {},
+    .guid_prefix = mapping.participant_guid_prefix,
+    .data = {{
+      .reader_id = reader_id,
+      .writer_id = writer_id,
+      .writer_sequence_number = sequence_number,
+      .serialized_payload = std::move(serialized_payload),
+    }},
+  };
+
+  if (!dds::rtps::FitsUdpPayload(message)) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError(overflow_error_message));
+  }
+
+  return core::Result<dds::rtps::RtpsMessage>::FromValue(std::move(message));
+}
+
+[[nodiscard]] core::Result<const dds::rtps::DataSubmessage*> FindMethodDataSubmessage(
+  const dds::rtps::RtpsMessage& message,
+  const dds::rtps::EntityId& writer_id,
+  const dds::rtps::EntityId& reader_id) {
+  for (const auto& data : message.data) {
+    if (data.writer_id != writer_id || data.reader_id != reader_id) {
+      continue;
+    }
+
+    if (data.writer_sequence_number == 0U) {
+      return core::Result<const dds::rtps::DataSubmessage*>::FromError(
+        MakeError("DDS method DATA sequence number is zero"));
+    }
+
+    return core::Result<const dds::rtps::DataSubmessage*>::FromValue(&data);
+  }
+
+  return core::Result<const dds::rtps::DataSubmessage*>::FromError(
+    MakeError("DDS RTPS message does not contain the mapped method DATA pair"));
+}
+
 [[nodiscard]] dds::rtps::SedpEndpointKind ToSedpKind(DdsEndpointRole role) noexcept {
   if (role == DdsEndpointRole::kPublication) {
     return dds::rtps::SedpEndpointKind::kPublication;
@@ -326,6 +906,16 @@ void WriteU32Le(std::vector<std::uint8_t>& bytes, std::uint32_t value) {
 
 [[nodiscard]] dds::rtps::EntityId EndpointIdForRole(
   const DdsTopicMapping& mapping,
+  DdsEndpointRole role) noexcept {
+  if (role == DdsEndpointRole::kPublication) {
+    return mapping.writer_id;
+  }
+
+  return mapping.reader_id;
+}
+
+[[nodiscard]] dds::rtps::EntityId EndpointIdForRole(
+  const DdsFieldMapping& mapping,
   DdsEndpointRole role) noexcept {
   if (role == DdsEndpointRole::kPublication) {
     return mapping.writer_id;
@@ -1272,6 +1862,236 @@ core::Result<com::EventSample> DdsBinding::DecodeDataMessage(
     MakeError("DDS RTPS message does not contain the mapped DATA writer/reader pair"));
 }
 
+core::Result<dds::rtps::RtpsMessage> DdsBinding::BuildMethodRequest(
+  const DdsMethodMapping& mapping,
+  const com::MethodCall& call,
+  std::uint64_t sequence_number) {
+  auto validation = ValidateMethodRequestMapping(mapping);
+  if (!validation) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(validation.Error());
+  }
+
+  if (call.service != mapping.ara_service) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("method call service does not match DDS mapping"));
+  }
+
+  if (call.method_name != mapping.method_name) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("method call name does not match DDS mapping"));
+  }
+
+  auto serialized_payload = EncodeMethodPayload(
+    mapping,
+    call.payload,
+    call.correlation_id,
+    false,
+    call.expects_response,
+    false);
+  if (!serialized_payload) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(serialized_payload.Error());
+  }
+
+  return BuildMethodDataMessage(
+    mapping,
+    mapping.request_writer_id,
+    mapping.request_reader_id,
+    std::move(serialized_payload.Value()),
+    sequence_number,
+    "DDS RTPS method request exceeds configured UDP payload limit");
+}
+
+core::Result<com::MethodCall> DdsBinding::DecodeMethodRequest(
+  const DdsMethodMapping& mapping,
+  const dds::rtps::RtpsMessage& message) {
+  auto validation = ValidateMethodRequestMapping(mapping);
+  if (!validation) {
+    return core::Result<com::MethodCall>::FromError(validation.Error());
+  }
+
+  if (message.guid_prefix != mapping.participant_guid_prefix) {
+    return core::Result<com::MethodCall>::FromError(
+      MakeError("DDS method request participant GUID prefix does not match mapping"));
+  }
+
+  auto data = FindMethodDataSubmessage(
+    message,
+    mapping.request_writer_id,
+    mapping.request_reader_id);
+  if (!data) {
+    return core::Result<com::MethodCall>::FromError(data.Error());
+  }
+
+  auto decoded = DecodeMethodPayload(mapping, data.Value()->serialized_payload, false);
+  if (!decoded) {
+    return core::Result<com::MethodCall>::FromError(decoded.Error());
+  }
+  auto decoded_value = std::move(decoded.Value());
+
+  return core::Result<com::MethodCall>::FromValue({
+    .service = mapping.ara_service,
+    .method_name = mapping.method_name,
+    .payload = std::move(decoded_value.payload),
+    .correlation_id = decoded_value.correlation_id,
+    .expects_response = decoded_value.expects_response,
+  });
+}
+
+core::Result<dds::rtps::RtpsMessage> DdsBinding::BuildMethodResponse(
+  const DdsMethodMapping& mapping,
+  const com::MethodResult& result,
+  std::uint64_t sequence_number) {
+  auto validation = ValidateMethodResponseMapping(mapping);
+  if (!validation) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(validation.Error());
+  }
+
+  if (result.service != mapping.ara_service) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("method result service does not match DDS mapping"));
+  }
+
+  if (result.method_name != mapping.method_name) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("method result name does not match DDS mapping"));
+  }
+
+  auto serialized_payload = EncodeMethodPayload(
+    mapping,
+    result.payload,
+    result.correlation_id,
+    true,
+    true,
+    result.application_error,
+    result.error_domain,
+    result.error_code);
+  if (!serialized_payload) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(serialized_payload.Error());
+  }
+
+  return BuildMethodDataMessage(
+    mapping,
+    mapping.response_writer_id,
+    mapping.response_reader_id,
+    std::move(serialized_payload.Value()),
+    sequence_number,
+    "DDS RTPS method response exceeds configured UDP payload limit");
+}
+
+core::Result<com::MethodResult> DdsBinding::DecodeMethodResponse(
+  const DdsMethodMapping& mapping,
+  const dds::rtps::RtpsMessage& message) {
+  auto validation = ValidateMethodResponseMapping(mapping);
+  if (!validation) {
+    return core::Result<com::MethodResult>::FromError(validation.Error());
+  }
+
+  if (message.guid_prefix != mapping.participant_guid_prefix) {
+    return core::Result<com::MethodResult>::FromError(
+      MakeError("DDS method response participant GUID prefix does not match mapping"));
+  }
+
+  auto data = FindMethodDataSubmessage(
+    message,
+    mapping.response_writer_id,
+    mapping.response_reader_id);
+  if (!data) {
+    return core::Result<com::MethodResult>::FromError(data.Error());
+  }
+
+  auto decoded = DecodeMethodPayload(mapping, data.Value()->serialized_payload, true);
+  if (!decoded) {
+    return core::Result<com::MethodResult>::FromError(decoded.Error());
+  }
+  auto decoded_value = std::move(decoded.Value());
+
+  return core::Result<com::MethodResult>::FromValue({
+    .service = mapping.ara_service,
+    .method_name = mapping.method_name,
+    .payload = std::move(decoded_value.payload),
+    .correlation_id = decoded_value.correlation_id,
+    .application_error = decoded_value.application_error,
+    .error_domain = std::move(decoded_value.error_domain),
+    .error_code = decoded_value.error_code,
+  });
+}
+
+core::Result<dds::rtps::RtpsMessage> DdsBinding::BuildFieldNotification(
+  const DdsFieldMapping& mapping,
+  const com::FieldValue& value,
+  std::uint64_t sequence_number) {
+  auto validation = ValidateFieldMapping(mapping);
+  if (!validation) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(validation.Error());
+  }
+
+  if (sequence_number == 0U) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("DDS field DATA sequence number is zero"));
+  }
+
+  auto serialized_payload = EncodeFieldPayload(mapping, value);
+  if (!serialized_payload) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(serialized_payload.Error());
+  }
+
+  dds::rtps::RtpsMessage message{
+    .vendor_id = {},
+    .guid_prefix = mapping.participant_guid_prefix,
+    .data = {{
+      .reader_id = mapping.reader_id,
+      .writer_id = mapping.writer_id,
+      .writer_sequence_number = sequence_number,
+      .serialized_payload = std::move(serialized_payload.Value()),
+    }},
+  };
+
+  if (!dds::rtps::FitsUdpPayload(message)) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(
+      MakeError("DDS RTPS field notification exceeds configured UDP payload limit"));
+  }
+
+  return core::Result<dds::rtps::RtpsMessage>::FromValue(std::move(message));
+}
+
+core::Result<com::FieldValue> DdsBinding::DecodeFieldNotification(
+  const DdsFieldMapping& mapping,
+  const dds::rtps::RtpsMessage& message) {
+  auto validation = ValidateFieldMapping(mapping);
+  if (!validation) {
+    return core::Result<com::FieldValue>::FromError(validation.Error());
+  }
+
+  if (message.guid_prefix != mapping.participant_guid_prefix) {
+    return core::Result<com::FieldValue>::FromError(
+      MakeError("DDS field participant GUID prefix does not match mapping"));
+  }
+
+  for (const auto& data : message.data) {
+    if (data.writer_id != mapping.writer_id || data.reader_id != mapping.reader_id) {
+      continue;
+    }
+
+    if (data.writer_sequence_number == 0U) {
+      return core::Result<com::FieldValue>::FromError(
+        MakeError("DDS field DATA sequence number is zero"));
+    }
+
+    auto decoded = DecodeFieldPayload(mapping, data.serialized_payload);
+    if (!decoded) {
+      return core::Result<com::FieldValue>::FromError(decoded.Error());
+    }
+
+    if (decoded.Value().sequence == 0U) {
+      decoded.Value().sequence = data.writer_sequence_number;
+    }
+    return decoded;
+  }
+
+  return core::Result<com::FieldValue>::FromError(
+    MakeError("DDS RTPS message does not contain the mapped field DATA pair"));
+}
+
 core::Result<std::size_t> DdsBinding::PublishEvent(
   const dds::rtps::UdpEndpoint& endpoint,
   dds::rtps::UdpEndpointAddress remote,
@@ -1297,12 +2117,61 @@ core::Result<com::EventSample> DdsBinding::ReceiveEvent(
   return DecodeDataMessage(mapping, datagram.Value().message);
 }
 
+core::Result<std::size_t> DdsBinding::PublishFieldNotification(
+  const dds::rtps::UdpEndpoint& endpoint,
+  dds::rtps::UdpEndpointAddress remote,
+  const DdsFieldMapping& mapping,
+  const com::FieldValue& value,
+  std::uint64_t sequence_number) {
+  auto message = BuildFieldNotification(mapping, value, sequence_number);
+  if (!message) {
+    return core::Result<std::size_t>::FromError(message.Error());
+  }
+
+  return endpoint.SendTo(message.Value(), std::move(remote));
+}
+
+core::Result<com::FieldValue> DdsBinding::ReceiveFieldNotification(
+  const dds::rtps::UdpEndpoint& endpoint,
+  const DdsFieldMapping& mapping) {
+  auto datagram = endpoint.Receive();
+  if (!datagram) {
+    return core::Result<com::FieldValue>::FromError(datagram.Error());
+  }
+
+  return DecodeFieldNotification(mapping, datagram.Value().message);
+}
+
 core::Result<dds::rtps::RtpsMessage> DdsBinding::BuildEndpointDiscovery(
   const DdsTopicMapping& mapping,
   DdsEndpointRole role,
   dds::rtps::UdpEndpointAddress locator,
   std::uint64_t sequence_number) {
   auto validation = ValidateMapping(mapping);
+  if (!validation) {
+    return core::Result<dds::rtps::RtpsMessage>::FromError(validation.Error());
+  }
+
+  return dds::rtps::BuildSedpEndpointAnnouncement(
+    {
+      .participant_guid_prefix = mapping.participant_guid_prefix,
+      .endpoint_id = EndpointIdForRole(mapping, role),
+      .topic_name = mapping.topic_name,
+      .type_name = mapping.type_name,
+      .unicast_locator = std::move(locator),
+      .reliability_kind = ToSedpReliability(mapping.qos.reliability),
+      .durability_kind = ToSedpDurability(mapping.qos.durability),
+    },
+    ToSedpKind(role),
+    sequence_number);
+}
+
+core::Result<dds::rtps::RtpsMessage> DdsBinding::BuildEndpointDiscovery(
+  const DdsFieldMapping& mapping,
+  DdsEndpointRole role,
+  dds::rtps::UdpEndpointAddress locator,
+  std::uint64_t sequence_number) {
+  auto validation = ValidateFieldMapping(mapping);
   if (!validation) {
     return core::Result<dds::rtps::RtpsMessage>::FromError(validation.Error());
   }
@@ -1337,7 +2206,11 @@ std::vector<UnsupportedFeature> DdsBinding::UnsupportedFeatureMatrix() {
       "reliable writer/reader",
       "bounded HEARTBEAT/ACKNACK repair path is present; timers and async resend are not",
     },
-    {"request/reply operations", "event publish/subscribe is implemented first"},
+    {
+      "async method dispatch",
+      "DDS request/reply, no-response method, and field notification envelopes "
+      "are present; proxy/skeleton dispatch loops are not implemented",
+    },
     {"fragmentation", "UDP payloads are bounded to one RTPS datagram in the MVP"},
     {
       "durability/history cache",

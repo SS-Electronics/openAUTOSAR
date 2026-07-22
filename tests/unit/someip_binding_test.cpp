@@ -50,6 +50,12 @@ int main() {
     .event_id = 0x8001U,
     .event_name = "DistanceSample",
     .eventgroup_id = 0x0100U,
+    .method_id = 0x0421U,
+    .method_name = "GetDistanceStatistics",
+    .field_getter_id = 0U,
+    .field_setter_id = 0U,
+    .field_notifier_id = 0U,
+    .field_name = "",
     .major_version = 1U,
     .minor_version = 0U,
     .ttl_seconds = 3U,
@@ -163,6 +169,270 @@ int main() {
     !SomeIpBinding::DecodeEventNotification(mapping, wrong_event).HasValue(),
     "wrong SOME/IP event id was accepted");
 
+  const RequestId method_request_id{.client_id = 0x0A51U, .session_id = 0x0102U};
+  constexpr std::uint64_t method_correlation{0x0A510102ULL};
+  const com::MethodCall method_call{
+    .service = ultrasonic_service,
+    .method_name = "GetDistanceStatistics",
+    .payload = {0x00U, 0x64U},
+    .correlation_id = method_correlation,
+  };
+
+  const auto method_request = SomeIpBinding::BuildMethodRequest(
+    mapping,
+    method_call,
+    method_request_id);
+  Require(method_request.HasValue(), "SOME/IP method request build failed");
+  Require(
+    method_request.Value().header.message_id.method_id == mapping.method_id,
+    "SOME/IP method id changed");
+  Require(
+    method_request.Value().header.message_type == MessageType::kRequest,
+    "SOME/IP method request type changed");
+  const auto method_request_bytes = SerializeMessage(method_request.Value());
+  Require(method_request_bytes.HasValue(), "SOME/IP method request serialization failed");
+
+  const auto decoded_method_call =
+    SomeIpBinding::DecodeMethodRequest(mapping, method_request.Value());
+  Require(decoded_method_call.HasValue(), "SOME/IP method request decode failed");
+  Require(
+    decoded_method_call.Value() == method_call,
+    "SOME/IP decoded method call changed");
+
+  const com::MethodResult method_result{
+    .service = ultrasonic_service,
+    .method_name = "GetDistanceStatistics",
+    .payload = {0x01U, 0x2CU},
+    .correlation_id = method_correlation,
+    .application_error = false,
+    .error_domain = {},
+    .error_code = 0U,
+  };
+  const auto method_response = SomeIpBinding::BuildMethodResponse(
+    mapping,
+    method_result,
+    method_request_id);
+  Require(method_response.HasValue(), "SOME/IP method response build failed");
+  Require(
+    method_response.Value().header.message_type == MessageType::kResponse,
+    "SOME/IP method response type changed");
+
+  const auto decoded_method_result =
+    SomeIpBinding::DecodeMethodResponse(mapping, method_response.Value());
+  Require(decoded_method_result.HasValue(), "SOME/IP method response decode failed");
+  Require(
+    decoded_method_result.Value() == method_result,
+    "SOME/IP decoded method result changed");
+
+  com::MethodResult method_error = method_result;
+  method_error.payload = {0xEEU};
+  method_error.application_error = true;
+  method_error.error_domain = "UltrasonicDistanceService.GetDistanceStatistics";
+  method_error.error_code = 1U;
+  const auto method_error_response = SomeIpBinding::BuildMethodResponse(
+    mapping,
+    method_error,
+    method_request_id);
+  Require(method_error_response.HasValue(), "SOME/IP method error response build failed");
+  const auto decoded_method_error =
+    SomeIpBinding::DecodeMethodResponse(mapping, method_error_response.Value());
+  Require(decoded_method_error.HasValue(), "SOME/IP method error response decode failed");
+  Require(
+    decoded_method_error.Value().application_error,
+    "SOME/IP method application error flag changed");
+  Require(
+    decoded_method_error.Value().payload == std::vector<std::uint8_t>({0xEEU}),
+    "SOME/IP method application error payload changed");
+  Require(
+    decoded_method_error.Value().error_domain ==
+      "UltrasonicDistanceService.GetDistanceStatistics",
+    "SOME/IP method application error domain changed");
+  Require(
+    decoded_method_error.Value().error_code == 1U,
+    "SOME/IP method application error code changed");
+
+  auto wrong_method_type = method_request.Value();
+  wrong_method_type.header.message_type = MessageType::kNotification;
+  Require(
+    !SomeIpBinding::DecodeMethodRequest(mapping, wrong_method_type).HasValue(),
+    "SOME/IP notification was accepted as method request");
+  com::MethodResult wrong_correlation_result = method_result;
+  wrong_correlation_result.correlation_id = 0x01020304ULL;
+  Require(
+    !SomeIpBinding::BuildMethodResponse(
+       mapping,
+       wrong_correlation_result,
+       method_request_id)
+       .HasValue(),
+    "SOME/IP method response accepted mismatched correlation");
+
+  SomeIpServiceMapping fire_and_forget_mapping = mapping;
+  fire_and_forget_mapping.method_id = 0x0422U;
+  fire_and_forget_mapping.method_name = "ResetCalibration";
+  const RequestId fire_and_forget_request_id{.client_id = 0x0A51U, .session_id = 0x0103U};
+  constexpr std::uint64_t fire_and_forget_correlation{0x0A510103ULL};
+  const com::MethodCall fire_and_forget_call{
+    .service = ultrasonic_service,
+    .method_name = "ResetCalibration",
+    .payload = {0x02U},
+    .correlation_id = fire_and_forget_correlation,
+    .expects_response = false,
+  };
+  const auto fire_and_forget_request = SomeIpBinding::BuildFireAndForgetMethodRequest(
+    fire_and_forget_mapping,
+    fire_and_forget_call,
+    fire_and_forget_request_id);
+  Require(
+    fire_and_forget_request.HasValue(),
+    "SOME/IP fire-and-forget method request build failed");
+  Require(
+    fire_and_forget_request.Value().header.message_type == MessageType::kRequestNoReturn,
+    "SOME/IP fire-and-forget request type changed");
+  const auto decoded_fire_and_forget_call =
+    SomeIpBinding::DecodeFireAndForgetMethodRequest(
+      fire_and_forget_mapping,
+      fire_and_forget_request.Value());
+  Require(
+    decoded_fire_and_forget_call.HasValue(),
+    "SOME/IP fire-and-forget method request decode failed");
+  Require(
+    decoded_fire_and_forget_call.Value() == fire_and_forget_call,
+    "SOME/IP decoded fire-and-forget method call changed");
+  Require(
+    !SomeIpBinding::BuildMethodRequest(
+       fire_and_forget_mapping,
+       fire_and_forget_call,
+       fire_and_forget_request_id)
+       .HasValue(),
+    "SOME/IP response-expected builder accepted fire-and-forget call");
+  com::MethodCall response_expected_fire_call = fire_and_forget_call;
+  response_expected_fire_call.expects_response = true;
+  Require(
+    !SomeIpBinding::BuildFireAndForgetMethodRequest(
+       fire_and_forget_mapping,
+       response_expected_fire_call,
+       fire_and_forget_request_id)
+       .HasValue(),
+    "SOME/IP fire-and-forget builder accepted response-expected call");
+  Require(
+    !SomeIpBinding::DecodeMethodRequest(
+       fire_and_forget_mapping,
+       fire_and_forget_request.Value())
+       .HasValue(),
+    "SOME/IP no-return request decoded as response-expected method");
+
+  SomeIpServiceMapping field_mapping = mapping;
+  field_mapping.field_getter_id = 0x0521U;
+  field_mapping.field_setter_id = 0x0522U;
+  field_mapping.field_notifier_id = 0x8521U;
+  field_mapping.field_name = "CalibrationMode";
+  const RequestId field_request_id{.client_id = 0x0A51U, .session_id = 0x0104U};
+  const com::FieldValue field_value{
+    .service = ultrasonic_service,
+    .field_name = "CalibrationMode",
+    .payload = {0x03U},
+    .sequence = 7U,
+  };
+
+  const auto field_getter_request =
+    SomeIpBinding::BuildFieldGetterRequest(field_mapping, field_request_id);
+  Require(field_getter_request.HasValue(), "SOME/IP field getter request build failed");
+  Require(
+    field_getter_request.Value().header.message_id.method_id == field_mapping.field_getter_id,
+    "SOME/IP field getter id changed");
+  Require(
+    field_getter_request.Value().header.message_type == MessageType::kRequest,
+    "SOME/IP field getter request type changed");
+  const auto decoded_field_getter_request =
+    SomeIpBinding::DecodeFieldGetterRequest(field_mapping, field_getter_request.Value());
+  Require(
+    decoded_field_getter_request.HasValue(),
+    "SOME/IP field getter request decode failed");
+  Require(
+    decoded_field_getter_request.Value().service == ultrasonic_service,
+    "SOME/IP decoded field getter service changed");
+  Require(
+    decoded_field_getter_request.Value().field_name == "CalibrationMode",
+    "SOME/IP decoded field getter name changed");
+  Require(
+    decoded_field_getter_request.Value().payload.empty(),
+    "SOME/IP decoded field getter request carried payload");
+
+  const auto field_getter_response = SomeIpBinding::BuildFieldGetterResponse(
+    field_mapping,
+    field_value,
+    field_request_id);
+  Require(field_getter_response.HasValue(), "SOME/IP field getter response build failed");
+  const auto decoded_field_getter_response =
+    SomeIpBinding::DecodeFieldGetterResponse(field_mapping, field_getter_response.Value());
+  Require(
+    decoded_field_getter_response.HasValue(),
+    "SOME/IP field getter response decode failed");
+  Require(
+    decoded_field_getter_response.Value().payload == field_value.payload,
+    "SOME/IP decoded field getter response payload changed");
+
+  const auto field_setter_request = SomeIpBinding::BuildFieldSetterRequest(
+    field_mapping,
+    field_value,
+    field_request_id);
+  Require(field_setter_request.HasValue(), "SOME/IP field setter request build failed");
+  Require(
+    field_setter_request.Value().header.message_id.method_id == field_mapping.field_setter_id,
+    "SOME/IP field setter id changed");
+  const auto decoded_field_setter_request =
+    SomeIpBinding::DecodeFieldSetterRequest(field_mapping, field_setter_request.Value());
+  Require(
+    decoded_field_setter_request.HasValue(),
+    "SOME/IP field setter request decode failed");
+  Require(
+    decoded_field_setter_request.Value().payload == field_value.payload,
+    "SOME/IP decoded field setter request payload changed");
+
+  const auto field_setter_response = SomeIpBinding::BuildFieldSetterResponse(
+    field_mapping,
+    field_value,
+    field_request_id);
+  Require(field_setter_response.HasValue(), "SOME/IP field setter response build failed");
+  const auto decoded_field_setter_response =
+    SomeIpBinding::DecodeFieldSetterResponse(field_mapping, field_setter_response.Value());
+  Require(
+    decoded_field_setter_response.HasValue(),
+    "SOME/IP field setter response decode failed");
+  Require(
+    decoded_field_setter_response.Value().field_name == field_value.field_name,
+    "SOME/IP decoded field setter response name changed");
+
+  const auto field_notification = SomeIpBinding::BuildFieldNotification(
+    field_mapping,
+    field_value,
+    {.client_id = 0xA501U, .session_id = 0x0005U});
+  Require(field_notification.HasValue(), "SOME/IP field notification build failed");
+  Require(
+    field_notification.Value().header.message_id.method_id == field_mapping.field_notifier_id,
+    "SOME/IP field notifier id changed");
+  Require(
+    field_notification.Value().header.message_type == MessageType::kNotification,
+    "SOME/IP field notification type changed");
+  const auto decoded_field_notification =
+    SomeIpBinding::DecodeFieldNotification(field_mapping, field_notification.Value());
+  Require(
+    decoded_field_notification.HasValue(),
+    "SOME/IP field notification decode failed");
+  Require(
+    decoded_field_notification.Value().payload == field_value.payload,
+    "SOME/IP decoded field notification payload changed");
+
+  auto invalid_notifier = field_mapping;
+  invalid_notifier.field_notifier_id = 0x0523U;
+  Require(
+    !SomeIpBinding::BuildFieldNotification(
+       invalid_notifier,
+       field_value,
+       {.client_id = 0xA501U, .session_id = 0x0006U})
+       .HasValue(),
+    "SOME/IP field notifier outside event range was accepted");
+
   const auto receiver = UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
   const auto sender = UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
   Require(receiver.HasValue() && sender.HasValue(), "SOME/IP binding UDP endpoints did not bind");
@@ -224,6 +494,16 @@ int main() {
   Require(
     !SomeIpBinding::BuildSubscribe(invalid_mapping, sd_request).HasValue(),
     "invalid SOME/IP eventgroup mapping was accepted");
+
+  SomeIpServiceMapping invalid_method_mapping = mapping;
+  invalid_method_mapping.method_id = 0x8002U;
+  Require(
+    !SomeIpBinding::BuildMethodRequest(
+       invalid_method_mapping,
+       method_call,
+       method_request_id)
+       .HasValue(),
+    "SOME/IP event-range method id was accepted");
 
   const auto wrong_sample = SomeIpBinding::BuildEventNotification(
     mapping,

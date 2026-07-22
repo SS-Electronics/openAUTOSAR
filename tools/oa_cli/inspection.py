@@ -202,6 +202,12 @@ def service_list(context: InspectionContext) -> dict[str, Any]:
                 "event_count": service.get("event_count", 0),
                 "e2e_event_count": service.get("e2e_event_count", 0),
                 "events": service.get("events", []),
+                "field_count": service.get("field_count", 0),
+                "fields": service.get("fields", []),
+                "method_count": service.get("method_count", 0),
+                "methods": service.get("methods", []),
+                "trigger_count": service.get("trigger_count", 0),
+                "triggers": service.get("triggers", []),
             }
         )
 

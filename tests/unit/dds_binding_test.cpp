@@ -33,7 +33,9 @@ int main() {
   using openautosar::dds_binding::DdsDurabilityPolicy;
   using openautosar::dds_binding::DdsEndpointMatch;
   using openautosar::dds_binding::DdsEndpointRole;
+  using openautosar::dds_binding::DdsFieldMapping;
   using openautosar::dds_binding::DdsLivelinessPolicy;
+  using openautosar::dds_binding::DdsMethodMapping;
   using openautosar::dds_binding::DdsOwnershipPolicy;
   using openautosar::dds_binding::DdsReliabilityPolicy;
   using openautosar::dds_binding::DdsReliableReader;
@@ -68,6 +70,24 @@ int main() {
     }},
   };
 
+  const DdsMethodMapping method_mapping{
+    .ara_service = ultrasonic_service,
+    .method_name = "GetDistanceStatistics",
+    .request_topic_name = "openautosar.ultrasonic.GetDistanceStatistics.Request",
+    .response_topic_name = "openautosar.ultrasonic.GetDistanceStatistics.Response",
+    .request_type_name = "openautosar.virtual_vehicle.GetDistanceStatisticsRequest",
+    .response_type_name = "openautosar.virtual_vehicle.GetDistanceStatisticsResponse",
+    .participant_guid_prefix = mapping.participant_guid_prefix,
+  };
+
+  const DdsFieldMapping field_mapping{
+    .ara_service = ultrasonic_service,
+    .field_name = "CalibrationMode",
+    .topic_name = "openautosar.ultrasonic.CalibrationMode",
+    .type_name = "openautosar.virtual_vehicle.CalibrationModeField",
+    .participant_guid_prefix = mapping.participant_guid_prefix,
+  };
+
   com::ServiceRegistry registry;
   const auto offer = registry.OfferService({
     .service = ultrasonic_service,
@@ -82,6 +102,10 @@ int main() {
 
   const auto subscription = registry.Subscribe(ultrasonic_service, "DistanceSample", 2U);
   Require(subscription.HasValue(), "DDS registry subscription failed");
+
+  const auto field_subscription =
+    registry.SubscribeField(ultrasonic_service, "CalibrationMode", 1U);
+  Require(field_subscription.HasValue(), "DDS registry field subscription failed");
 
   const com::EventSample sample{
     .service = ultrasonic_service,
@@ -116,6 +140,54 @@ int main() {
     delivered_direct.Value().payload == sample.payload,
     "registry DDS direct payload changed");
 
+  const com::FieldValue field_value{
+    .service = ultrasonic_service,
+    .field_name = "CalibrationMode",
+    .payload = {0x02U},
+    .sequence = 5U,
+  };
+  const auto field_notification = DdsBinding::BuildFieldNotification(
+    field_mapping,
+    field_value,
+    29U);
+  Require(field_notification.HasValue(), "DDS field notification did not build");
+  Require(
+    field_notification.Value().data[0U].writer_id == field_mapping.writer_id,
+    "DDS field writer id changed");
+  Require(
+    field_notification.Value().data[0U].reader_id == field_mapping.reader_id,
+    "DDS field reader id changed");
+  Require(
+    field_notification.Value().data[0U].writer_sequence_number == 29U,
+    "DDS field writer sequence changed");
+
+  const auto decoded_field =
+    DdsBinding::DecodeFieldNotification(field_mapping, field_notification.Value());
+  Require(decoded_field.HasValue(), "DDS field notification did not decode");
+  Require(decoded_field.Value() == field_value, "DDS decoded field value changed");
+
+  const auto updated_field = registry.SetField(decoded_field.Value());
+  Require(updated_field.HasValue(), "decoded DDS field did not update registry");
+  const auto delivered_field = registry.PollField(field_subscription.Value().id);
+  Require(delivered_field.HasValue(), "registry did not deliver decoded DDS field");
+  Require(
+    delivered_field.Value().payload == field_value.payload,
+    "registry DDS field payload changed");
+
+  com::FieldValue zero_field_sequence = field_value;
+  zero_field_sequence.sequence = 0U;
+  const auto zero_sequence_field = DdsBinding::BuildFieldNotification(
+    field_mapping,
+    zero_field_sequence,
+    30U);
+  Require(zero_sequence_field.HasValue(), "DDS zero-sequence field did not build");
+  const auto decoded_zero_sequence_field =
+    DdsBinding::DecodeFieldNotification(field_mapping, zero_sequence_field.Value());
+  Require(
+    decoded_zero_sequence_field.HasValue() &&
+      decoded_zero_sequence_field.Value().sequence == 30U,
+    "DDS field did not fall back to RTPS sequence");
+
   DdsTopicMapping wrong_topic = mapping;
   wrong_topic.topic_name = "openautosar.ultrasonic.OtherSample";
   Require(
@@ -141,6 +213,166 @@ int main() {
     8U);
   Require(!wrong_sample.HasValue(), "wrong ara::com event name was accepted by DDS binding");
 
+  const com::MethodCall method_call{
+    .service = ultrasonic_service,
+    .method_name = "GetDistanceStatistics",
+    .payload = {0x00U, 0x64U},
+    .correlation_id = 0x0102030405060708ULL,
+  };
+  const auto method_request = DdsBinding::BuildMethodRequest(
+    method_mapping,
+    method_call,
+    23U);
+  Require(method_request.HasValue(), "DDS method request did not build");
+  Require(
+    method_request.Value().data[0U].writer_id == method_mapping.request_writer_id,
+    "DDS method request writer id changed");
+  Require(
+    method_request.Value().data[0U].reader_id == method_mapping.request_reader_id,
+    "DDS method request reader id changed");
+  Require(
+    method_request.Value().data[0U].writer_sequence_number == 23U,
+    "DDS method request sequence changed");
+  const auto method_request_bytes = rtps::SerializeRtpsMessage(method_request.Value());
+  Require(method_request_bytes.HasValue(), "DDS method request serialization failed");
+
+  const auto decoded_method_call =
+    DdsBinding::DecodeMethodRequest(method_mapping, method_request.Value());
+  Require(decoded_method_call.HasValue(), "DDS method request did not decode");
+  Require(decoded_method_call.Value() == method_call, "DDS decoded method call changed");
+
+  const com::MethodResult method_result{
+    .service = ultrasonic_service,
+    .method_name = "GetDistanceStatistics",
+    .payload = {0x01U, 0x2CU},
+    .correlation_id = method_call.correlation_id,
+    .application_error = false,
+    .error_domain = {},
+    .error_code = 0U,
+  };
+  const auto method_response = DdsBinding::BuildMethodResponse(
+    method_mapping,
+    method_result,
+    24U);
+  Require(method_response.HasValue(), "DDS method response did not build");
+  Require(
+    method_response.Value().data[0U].writer_id == method_mapping.response_writer_id,
+    "DDS method response writer id changed");
+  Require(
+    method_response.Value().data[0U].reader_id == method_mapping.response_reader_id,
+    "DDS method response reader id changed");
+  const auto method_response_bytes = rtps::SerializeRtpsMessage(method_response.Value());
+  Require(method_response_bytes.HasValue(), "DDS method response serialization failed");
+
+  const auto decoded_method_result =
+    DdsBinding::DecodeMethodResponse(method_mapping, method_response.Value());
+  Require(decoded_method_result.HasValue(), "DDS method response did not decode");
+  Require(decoded_method_result.Value() == method_result, "DDS decoded method result changed");
+
+  com::MethodResult method_error = method_result;
+  method_error.payload = {0xEEU};
+  method_error.application_error = true;
+  method_error.error_domain = "UltrasonicDistanceService.GetDistanceStatistics";
+  method_error.error_code = 1U;
+  const auto method_error_response = DdsBinding::BuildMethodResponse(
+    method_mapping,
+    method_error,
+    25U);
+  Require(method_error_response.HasValue(), "DDS method error response did not build");
+  const auto decoded_method_error =
+    DdsBinding::DecodeMethodResponse(method_mapping, method_error_response.Value());
+  Require(decoded_method_error.HasValue(), "DDS method error response did not decode");
+  Require(
+    decoded_method_error.Value().application_error,
+    "DDS method application error flag changed");
+  Require(
+    decoded_method_error.Value().payload == std::vector<std::uint8_t>({0xEEU}),
+    "DDS method application error payload changed");
+  Require(
+    decoded_method_error.Value().error_domain ==
+      "UltrasonicDistanceService.GetDistanceStatistics",
+    "DDS method application error domain changed");
+  Require(
+    decoded_method_error.Value().error_code == 1U,
+    "DDS method application error code changed");
+
+  DdsMethodMapping wrong_method_topic = method_mapping;
+  wrong_method_topic.response_topic_name =
+    "openautosar.ultrasonic.GetDistanceStatistics.OtherResponse";
+  Require(
+    !DdsBinding::DecodeMethodResponse(wrong_method_topic, method_response.Value()).HasValue(),
+    "DDS method response accepted the wrong response topic");
+  Require(
+    !DdsBinding::DecodeMethodResponse(method_mapping, method_request.Value()).HasValue(),
+    "DDS method request was accepted as a method response");
+
+  com::MethodCall zero_correlation_call = method_call;
+  zero_correlation_call.correlation_id = 0U;
+  Require(
+    !DdsBinding::BuildMethodRequest(method_mapping, zero_correlation_call, 26U).HasValue(),
+    "DDS method request accepted zero correlation");
+
+  DdsMethodMapping invalid_method_mapping = method_mapping;
+  invalid_method_mapping.request_reader_id = {};
+  Require(
+    !DdsBinding::BuildMethodRequest(invalid_method_mapping, method_call, 27U).HasValue(),
+    "DDS method mapping accepted zero request reader id");
+
+  DdsFieldMapping wrong_field_mapping = field_mapping;
+  wrong_field_mapping.field_name = "OtherField";
+  Require(
+    !DdsBinding::DecodeFieldNotification(wrong_field_mapping, field_notification.Value())
+       .HasValue(),
+    "DDS field notification accepted the wrong field name");
+  Require(
+    !DdsBinding::BuildFieldNotification(field_mapping, field_value, 0U).HasValue(),
+    "DDS field notification accepted zero RTPS sequence");
+  DdsFieldMapping invalid_field_mapping = field_mapping;
+  invalid_field_mapping.reader_id = {};
+  Require(
+    !DdsBinding::BuildFieldNotification(invalid_field_mapping, field_value, 31U)
+       .HasValue(),
+    "DDS field mapping accepted zero reader id");
+
+  com::MethodCall fire_and_forget_method_call = method_call;
+  fire_and_forget_method_call.method_name = "ResetCalibration";
+  fire_and_forget_method_call.payload = {0x02U};
+  fire_and_forget_method_call.correlation_id = 0x0102030405060709ULL;
+  fire_and_forget_method_call.expects_response = false;
+  DdsMethodMapping fire_and_forget_method_mapping = method_mapping;
+  fire_and_forget_method_mapping.method_name = "ResetCalibration";
+  fire_and_forget_method_mapping.request_topic_name =
+    "openautosar.ultrasonic.ResetCalibration.Request";
+  fire_and_forget_method_mapping.request_type_name =
+    "openautosar.virtual_vehicle.ResetCalibrationRequest";
+  fire_and_forget_method_mapping.response_topic_name.clear();
+  fire_and_forget_method_mapping.response_type_name.clear();
+  fire_and_forget_method_mapping.response_writer_id = {};
+  fire_and_forget_method_mapping.response_reader_id = {};
+  const auto fire_and_forget_method_request = DdsBinding::BuildMethodRequest(
+    fire_and_forget_method_mapping,
+    fire_and_forget_method_call,
+    28U);
+  Require(
+    fire_and_forget_method_request.HasValue(),
+    "DDS fire-and-forget method request did not build");
+  const auto decoded_fire_and_forget_method_call =
+    DdsBinding::DecodeMethodRequest(
+      fire_and_forget_method_mapping,
+      fire_and_forget_method_request.Value());
+  Require(
+    decoded_fire_and_forget_method_call.HasValue(),
+    "DDS fire-and-forget method request did not decode");
+  Require(
+    decoded_fire_and_forget_method_call.Value() == fire_and_forget_method_call,
+    "DDS decoded fire-and-forget method call changed");
+  Require(
+    !DdsBinding::DecodeMethodResponse(
+       fire_and_forget_method_mapping,
+       fire_and_forget_method_request.Value())
+       .HasValue(),
+    "DDS fire-and-forget method request decoded as a response");
+
   auto receiver = rtps::UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
   auto sender = rtps::UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
   Require(receiver.HasValue() && sender.HasValue(), "DDS binding UDP endpoints did not bind");
@@ -165,6 +397,26 @@ int main() {
   const auto delivered_udp = registry.Poll(subscription.Value().id);
   Require(delivered_udp.HasValue(), "registry did not deliver received DDS sample");
   Require(delivered_udp.Value().sequence == published_udp.Value(), "DDS registry sequence changed");
+
+  auto field_receiver = rtps::UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
+  auto field_sender = rtps::UdpEndpoint::Bind({.host = "127.0.0.1", .port = 0U});
+  Require(
+    field_receiver.HasValue() && field_sender.HasValue(),
+    "DDS field UDP endpoints did not bind");
+  const auto field_receiver_address = field_receiver.Value().LocalAddress();
+  Require(field_receiver_address.HasValue(), "DDS field receiver address unavailable");
+
+  const auto field_sent = DdsBinding::PublishFieldNotification(
+    field_sender.Value(),
+    field_receiver_address.Value(),
+    field_mapping,
+    field_value,
+    32U);
+  Require(field_sent.HasValue(), "DDS field UDP publish failed");
+  const auto received_field =
+    DdsBinding::ReceiveFieldNotification(field_receiver.Value(), field_mapping);
+  Require(received_field.HasValue(), "DDS field UDP receive failed");
+  Require(received_field.Value() == field_value, "DDS UDP received field changed");
 
   const auto unsupported = DdsBinding::UnsupportedFeatureMatrix();
   Require(!unsupported.empty(), "DDS unsupported-feature matrix is empty");
@@ -207,6 +459,23 @@ int main() {
   Require(subscription_endpoint.HasValue(), "DDS subscription discovery did not extract");
   Require(subscription_endpoint.Value().endpoint_id == mapping.reader_id,
           "DDS subscription discovery reader id changed");
+
+  const auto field_publication_discovery = DdsBinding::BuildEndpointDiscovery(
+    field_mapping,
+    DdsEndpointRole::kPublication,
+    {.host = "127.0.0.1", .port = 7400U},
+    12U);
+  Require(field_publication_discovery.HasValue(), "DDS field discovery did not build");
+  const auto field_publication_endpoint = rtps::ExtractSedpEndpointAnnouncement(
+    field_publication_discovery.Value(),
+    rtps::SedpEndpointKind::kPublication);
+  Require(field_publication_endpoint.HasValue(), "DDS field discovery did not extract");
+  Require(
+    field_publication_endpoint.Value().endpoint_id == field_mapping.writer_id,
+    "DDS field discovery writer id changed");
+  Require(
+    field_publication_endpoint.Value().topic_name == field_mapping.topic_name,
+    "DDS field discovery topic changed");
 
   DdsTopicMapping zero_history_mapping = mapping;
   zero_history_mapping.qos.history_depth = 0U;

@@ -67,6 +67,36 @@ struct DdsTopicMapping final {
   friend bool operator==(const DdsTopicMapping&, const DdsTopicMapping&) = default;
 };
 
+struct DdsMethodMapping final {
+  com::ServiceIdentifier ara_service{};
+  std::string method_name;
+  std::string request_topic_name;
+  std::string response_topic_name;
+  std::string request_type_name;
+  std::string response_type_name;
+  DdsQosProfile qos{};
+  dds::rtps::GuidPrefix participant_guid_prefix{};
+  dds::rtps::EntityId request_writer_id{.value = {0x00U, 0x00U, 0x05U, 0x02U}};
+  dds::rtps::EntityId request_reader_id{.value = {0x00U, 0x00U, 0x06U, 0x07U}};
+  dds::rtps::EntityId response_writer_id{.value = {0x00U, 0x00U, 0x07U, 0x02U}};
+  dds::rtps::EntityId response_reader_id{.value = {0x00U, 0x00U, 0x08U, 0x07U}};
+
+  friend bool operator==(const DdsMethodMapping&, const DdsMethodMapping&) = default;
+};
+
+struct DdsFieldMapping final {
+  com::ServiceIdentifier ara_service{};
+  std::string field_name;
+  std::string topic_name;
+  std::string type_name;
+  DdsQosProfile qos{};
+  dds::rtps::GuidPrefix participant_guid_prefix{};
+  dds::rtps::EntityId writer_id{.value = {0x00U, 0x00U, 0x09U, 0x02U}};
+  dds::rtps::EntityId reader_id{.value = {0x00U, 0x00U, 0x0AU, 0x07U}};
+
+  friend bool operator==(const DdsFieldMapping&, const DdsFieldMapping&) = default;
+};
+
 struct UnsupportedFeature final {
   std::string feature;
   std::string reason;
@@ -300,6 +330,33 @@ public:
     const DdsTopicMapping& mapping,
     const dds::rtps::RtpsMessage& message);
 
+  [[nodiscard]] static core::Result<dds::rtps::RtpsMessage> BuildMethodRequest(
+    const DdsMethodMapping& mapping,
+    const com::MethodCall& call,
+    std::uint64_t sequence_number);
+
+  [[nodiscard]] static core::Result<com::MethodCall> DecodeMethodRequest(
+    const DdsMethodMapping& mapping,
+    const dds::rtps::RtpsMessage& message);
+
+  [[nodiscard]] static core::Result<dds::rtps::RtpsMessage> BuildMethodResponse(
+    const DdsMethodMapping& mapping,
+    const com::MethodResult& result,
+    std::uint64_t sequence_number);
+
+  [[nodiscard]] static core::Result<com::MethodResult> DecodeMethodResponse(
+    const DdsMethodMapping& mapping,
+    const dds::rtps::RtpsMessage& message);
+
+  [[nodiscard]] static core::Result<dds::rtps::RtpsMessage> BuildFieldNotification(
+    const DdsFieldMapping& mapping,
+    const com::FieldValue& value,
+    std::uint64_t sequence_number);
+
+  [[nodiscard]] static core::Result<com::FieldValue> DecodeFieldNotification(
+    const DdsFieldMapping& mapping,
+    const dds::rtps::RtpsMessage& message);
+
   [[nodiscard]] static core::Result<std::size_t> PublishEvent(
     const dds::rtps::UdpEndpoint& endpoint,
     dds::rtps::UdpEndpointAddress remote,
@@ -311,8 +368,25 @@ public:
     const dds::rtps::UdpEndpoint& endpoint,
     const DdsTopicMapping& mapping);
 
+  [[nodiscard]] static core::Result<std::size_t> PublishFieldNotification(
+    const dds::rtps::UdpEndpoint& endpoint,
+    dds::rtps::UdpEndpointAddress remote,
+    const DdsFieldMapping& mapping,
+    const com::FieldValue& value,
+    std::uint64_t sequence_number);
+
+  [[nodiscard]] static core::Result<com::FieldValue> ReceiveFieldNotification(
+    const dds::rtps::UdpEndpoint& endpoint,
+    const DdsFieldMapping& mapping);
+
   [[nodiscard]] static core::Result<dds::rtps::RtpsMessage> BuildEndpointDiscovery(
     const DdsTopicMapping& mapping,
+    DdsEndpointRole role,
+    dds::rtps::UdpEndpointAddress locator,
+    std::uint64_t sequence_number);
+
+  [[nodiscard]] static core::Result<dds::rtps::RtpsMessage> BuildEndpointDiscovery(
+    const DdsFieldMapping& mapping,
     DdsEndpointRole role,
     dds::rtps::UdpEndpointAddress locator,
     std::uint64_t sequence_number);

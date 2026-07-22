@@ -27,6 +27,12 @@ enum class FrameType {
   kOffer,
   kSubscribe,
   kEvent,
+  kMethodRequest,
+  kMethodResponse,
+  kFireAndForgetMethodRequest,
+  kFieldValue,
+  kFieldSetRequest,
+  kTrigger,
   kHeartbeat,
   kStopOffer,
 };
@@ -71,6 +77,9 @@ struct LocalIpcEndpoint final {
 struct LocalIpcServiceMapping final {
   com::ServiceIdentifier ara_service{};
   std::string event_name;
+  std::string method_name;
+  std::string field_name;
+  std::string trigger_name;
   LocalIpcEndpoint endpoint{};
   PeerIdentity provider{};
   std::vector<PeerIdentity> allowed_consumers;
@@ -83,11 +92,19 @@ struct LocalIpcFrame final {
   FrameType type{FrameType::kEvent};
   com::ServiceIdentifier service{};
   std::string event_name;
+  std::string method_name;
+  std::string field_name;
+  std::string trigger_name;
   PeerIdentity source{};
   PeerIdentity destination{};
   std::uint64_t sequence{0U};
   std::uint64_t timestamp_ms{0U};
   std::uint64_t provider_generation{0U};
+  std::uint64_t correlation_id{0U};
+  bool expects_response{true};
+  bool application_error{false};
+  std::string error_domain;
+  std::uint32_t error_code{0U};
   std::vector<std::uint8_t> payload;
 
   friend bool operator==(const LocalIpcFrame&, const LocalIpcFrame&) = default;
@@ -107,6 +124,9 @@ struct DeliveryReport final {
 struct EndpointSnapshot final {
   com::ServiceIdentifier service{};
   std::string event_name;
+  std::string method_name;
+  std::string field_name;
+  std::string trigger_name;
   std::string socket_path;
   bool offered{false};
   std::uint64_t provider_generation{0U};
@@ -144,6 +164,84 @@ public:
     std::uint32_t timeout_ms,
     std::uint64_t now_ms);
 
+  [[nodiscard]] core::Result<DeliveryReport> SubmitMethodRequest(
+    const LocalIpcServiceMapping& mapping,
+    const com::MethodCall& call,
+    const PeerIdentity& consumer,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<LocalIpcFrame> TakeMethodRequest(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& provider,
+    std::uint32_t timeout_ms,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<DeliveryReport> CompleteMethodResponse(
+    const LocalIpcServiceMapping& mapping,
+    const com::MethodResult& result,
+    const PeerIdentity& provider,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<LocalIpcFrame> PollMethodResponse(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& consumer,
+    std::uint64_t correlation_id,
+    std::uint32_t timeout_ms,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<EndpointSnapshot> SubscribeField(
+    const LocalIpcServiceMapping& mapping,
+    PeerIdentity consumer,
+    std::size_t queue_depth,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<DeliveryReport> UpdateField(
+    const LocalIpcServiceMapping& mapping,
+    const com::FieldValue& value,
+    const PeerIdentity& provider,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<com::FieldValue> GetField(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& consumer,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<DeliveryReport> SubmitFieldSetRequest(
+    const LocalIpcServiceMapping& mapping,
+    const com::FieldValue& value,
+    const PeerIdentity& consumer,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<LocalIpcFrame> TakeFieldSetRequest(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& provider,
+    std::uint32_t timeout_ms,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<LocalIpcFrame> PollField(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& consumer,
+    std::uint32_t timeout_ms,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<EndpointSnapshot> SubscribeTrigger(
+    const LocalIpcServiceMapping& mapping,
+    PeerIdentity consumer,
+    std::size_t queue_depth,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<DeliveryReport> FireTrigger(
+    const LocalIpcServiceMapping& mapping,
+    const com::TriggerActivation& activation,
+    const PeerIdentity& provider,
+    std::uint64_t now_ms);
+
+  [[nodiscard]] core::Result<LocalIpcFrame> PollTrigger(
+    const LocalIpcServiceMapping& mapping,
+    const PeerIdentity& consumer,
+    std::uint32_t timeout_ms,
+    std::uint64_t now_ms);
+
   [[nodiscard]] std::vector<EndpointSnapshot> CleanupStaleEndpoints(std::uint64_t now_ms);
   [[nodiscard]] core::Result<EndpointSnapshot> SimulateProviderRestart(
     const LocalIpcServiceMapping& mapping,
@@ -171,6 +269,11 @@ private:
     std::uint64_t provider_generation{1U};
     std::uint64_t last_seen_ms{0U};
     std::map<std::string, SubscriptionState> subscriptions;
+    std::deque<LocalIpcFrame> method_requests;
+    std::map<std::uint64_t, PeerIdentity> method_response_peers;
+    std::map<std::string, std::deque<LocalIpcFrame>> method_responses;
+    std::deque<LocalIpcFrame> field_set_requests;
+    std::optional<com::FieldValue> latest_field;
   };
 
   [[nodiscard]] core::Result<bool> ValidateMapping(
@@ -181,6 +284,18 @@ private:
   [[nodiscard]] core::Result<bool> ValidateSample(
     const LocalIpcServiceMapping& mapping,
     const com::EventSample& sample) const;
+  [[nodiscard]] core::Result<bool> ValidateMethodCall(
+    const LocalIpcServiceMapping& mapping,
+    const com::MethodCall& call) const;
+  [[nodiscard]] core::Result<bool> ValidateMethodResult(
+    const LocalIpcServiceMapping& mapping,
+    const com::MethodResult& result) const;
+  [[nodiscard]] core::Result<bool> ValidateFieldValue(
+    const LocalIpcServiceMapping& mapping,
+    const com::FieldValue& value) const;
+  [[nodiscard]] core::Result<bool> ValidateTriggerActivation(
+    const LocalIpcServiceMapping& mapping,
+    const com::TriggerActivation& activation) const;
   [[nodiscard]] bool IsConsumerAllowed(
     const LocalIpcServiceMapping& mapping,
     const PeerIdentity& consumer) const;

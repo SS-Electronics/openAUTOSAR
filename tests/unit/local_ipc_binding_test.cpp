@@ -49,6 +49,9 @@ openautosar::local_ipc::LocalIpcServiceMapping Mapping(
   return {
     .ara_service = kUltrasonicService,
     .event_name = "DistanceSample",
+    .method_name = "GetDistanceStatistics",
+    .field_name = "CalibrationMode",
+    .trigger_name = "ObstacleCleared",
     .endpoint = {
       .socket_path = "/run/openautosar/ipc/ultrasonic-distance.sock",
       .permissions = 0660U,
@@ -70,7 +73,10 @@ openautosar::com::ServiceOffer Offer() {
     .endpoint = {
       .binding = openautosar::com::Binding::kLocalIpc,
       .address = "/run/openautosar/ipc/ultrasonic-distance.sock",
+      .port = 0U,
     },
+    .offer_state = openautosar::com::OfferState::kOffered,
+    .health_state = openautosar::com::HealthState::kHealthy,
     .ttl_ms = 250U,
     .access_policy = "unit-test",
     .deployment_provenance = "local-ipc-binding-test",
@@ -82,6 +88,53 @@ openautosar::com::EventSample Sample(std::uint8_t value) {
     .service = kUltrasonicService,
     .event_name = "DistanceSample",
     .payload = {0x01U, value},
+    .sequence = 0U,
+  };
+}
+
+openautosar::com::MethodCall MethodCall(
+  std::uint64_t correlation_id,
+  bool expects_response = true) {
+  return {
+    .service = kUltrasonicService,
+    .method_name = "GetDistanceStatistics",
+    .payload = {0x40U, 0x01U},
+    .correlation_id = correlation_id,
+    .expects_response = expects_response,
+  };
+}
+
+openautosar::com::MethodResult MethodResult(
+  std::uint64_t correlation_id,
+  bool application_error = false) {
+  return {
+    .service = kUltrasonicService,
+    .method_name = "GetDistanceStatistics",
+    .payload = application_error ? std::vector<std::uint8_t>{0xEEU}
+                                 : std::vector<std::uint8_t>{0x00U, 0x2AU},
+    .correlation_id = correlation_id,
+    .application_error = application_error,
+    .error_domain = application_error
+                      ? std::string("UltrasonicDistanceService.GetDistanceStatistics")
+                      : std::string(),
+    .error_code = application_error ? 1U : 0U,
+  };
+}
+
+openautosar::com::FieldValue FieldValue(std::uint8_t value) {
+  return {
+    .service = kUltrasonicService,
+    .field_name = "CalibrationMode",
+    .payload = {value},
+    .sequence = static_cast<std::uint64_t>(value),
+  };
+}
+
+openautosar::com::TriggerActivation TriggerActivation(std::uint64_t sequence) {
+  return {
+    .service = kUltrasonicService,
+    .trigger_name = "ObstacleCleared",
+    .sequence = sequence,
   };
 }
 
@@ -133,29 +186,112 @@ int main() {
   const auto timeout = binding.PollEvent(mapping, Consumer(), 10U, 1'007U);
   Require(!timeout.HasValue(), "empty local IPC poll with timeout succeeded");
 
+  const auto method_submitted =
+    binding.SubmitMethodRequest(mapping, MethodCall(0x0100U), Consumer(), 1'008U);
+  Require(method_submitted.HasValue(), "local IPC method request submit failed");
+  Require(
+    method_submitted.Value().status == ipc::DeliveryStatus::kDelivered,
+    "local IPC method request was not delivered");
+  const auto method_request = binding.TakeMethodRequest(mapping, Provider(), 0U, 1'009U);
+  Require(method_request.HasValue(), "local IPC method request was not queued");
+  Require(
+    method_request.Value().type == ipc::FrameType::kMethodRequest,
+    "local IPC method request frame type changed");
+  Require(
+    method_request.Value().correlation_id == 0x0100U,
+    "local IPC method request correlation changed");
+
+  const auto method_completed =
+    binding.CompleteMethodResponse(mapping, MethodResult(0x0100U, true), Provider(), 1'010U);
+  Require(method_completed.HasValue(), "local IPC method response completion failed");
+  const auto method_response =
+    binding.PollMethodResponse(mapping, Consumer(), 0x0100U, 0U, 1'011U);
+  Require(method_response.HasValue(), "local IPC method response was not queued");
+  Require(
+    method_response.Value().type == ipc::FrameType::kMethodResponse,
+    "local IPC method response frame type changed");
+  Require(
+    method_response.Value().application_error,
+    "local IPC method application error flag changed");
+  Require(
+    method_response.Value().error_domain ==
+      "UltrasonicDistanceService.GetDistanceStatistics",
+    "local IPC method application error domain changed");
+  Require(method_response.Value().error_code == 1U, "local IPC method error code changed");
+
+  const auto fire_and_forget =
+    binding.SubmitMethodRequest(mapping, MethodCall(0x0101U, false), Consumer(), 1'012U);
+  Require(fire_and_forget.HasValue(), "local IPC fire-and-forget submit failed");
+  const auto no_response_request =
+    binding.TakeMethodRequest(mapping, Provider(), 0U, 1'013U);
+  Require(no_response_request.HasValue(), "local IPC fire-and-forget request missing");
+  Require(
+    no_response_request.Value().type == ipc::FrameType::kFireAndForgetMethodRequest,
+    "local IPC fire-and-forget frame type changed");
+  Require(
+    !binding.CompleteMethodResponse(mapping, MethodResult(0x0101U), Provider(), 1'014U)
+       .HasValue(),
+    "local IPC fire-and-forget accepted a method response");
+
+  Require(
+    binding.SubscribeField(mapping, Consumer(), 2U, 1'015U).HasValue(),
+    "local IPC field subscription failed");
+  const auto field_update = binding.UpdateField(mapping, FieldValue(0x02U), Provider(), 1'016U);
+  Require(field_update.HasValue(), "local IPC field update failed");
+  const auto current_field = binding.GetField(mapping, Consumer(), 1'017U);
+  Require(current_field.HasValue(), "local IPC field getter failed");
+  Require(current_field.Value().payload == FieldValue(0x02U).payload, "field getter changed");
+  const auto field_frame = binding.PollField(mapping, Consumer(), 0U, 1'018U);
+  Require(field_frame.HasValue(), "local IPC field notifier did not deliver");
+  Require(
+    field_frame.Value().type == ipc::FrameType::kFieldValue,
+    "local IPC field notifier frame type changed");
+
+  const auto field_set =
+    binding.SubmitFieldSetRequest(mapping, FieldValue(0x03U), Consumer(), 1'019U);
+  Require(field_set.HasValue(), "local IPC field setter submit failed");
+  const auto field_set_request = binding.TakeFieldSetRequest(mapping, Provider(), 0U, 1'020U);
+  Require(field_set_request.HasValue(), "local IPC field setter request missing");
+  Require(
+    field_set_request.Value().type == ipc::FrameType::kFieldSetRequest,
+    "local IPC field setter frame type changed");
+
+  Require(
+    binding.SubscribeTrigger(mapping, Consumer(), 2U, 1'021U).HasValue(),
+    "local IPC trigger subscription failed");
+  const auto trigger_report =
+    binding.FireTrigger(mapping, TriggerActivation(7U), Provider(), 1'022U);
+  Require(trigger_report.HasValue(), "local IPC trigger fire failed");
+  const auto trigger_frame = binding.PollTrigger(mapping, Consumer(), 0U, 1'023U);
+  Require(trigger_frame.HasValue(), "local IPC trigger was not delivered");
+  Require(
+    trigger_frame.Value().type == ipc::FrameType::kTrigger,
+    "local IPC trigger frame type changed");
+  Require(trigger_frame.Value().payload.empty(), "local IPC trigger carried a payload");
+
   binding.SetTestHook(ipc::TestHook::kDropNextFrame);
-  const auto dropped = binding.PublishEvent(mapping, Sample(0x12U), Provider(), 1'008U);
+  const auto dropped = binding.PublishEvent(mapping, Sample(0x12U), Provider(), 1'024U);
   Require(dropped.HasValue(), "drop hook publish failed");
   Require(
     dropped.Value().status == ipc::DeliveryStatus::kDroppedByHook,
     "drop hook did not consume frame");
 
   const auto wrong_provider =
-    binding.PublishEvent(mapping, Sample(0x13U), Consumer(), 1'009U);
+    binding.PublishEvent(mapping, Sample(0x13U), Consumer(), 1'025U);
   Require(wrong_provider.HasValue(), "wrong-provider publish failed to report status");
   Require(
     wrong_provider.Value().status == ipc::DeliveryStatus::kPeerRejected,
     "wrong provider identity was not rejected");
 
-  const auto restarted = binding.SimulateProviderRestart(mapping, 1'010U);
+  const auto restarted = binding.SimulateProviderRestart(mapping, 1'026U);
   Require(restarted.HasValue(), "provider restart simulation failed");
   Require(restarted.Value().provider_generation == 2U, "provider generation did not increment");
   Require(binding.QueueDepthFor(mapping, Consumer()) == 0U, "restart did not clear queue");
 
   const auto post_restart =
-    binding.PublishEvent(mapping, Sample(0x20U), Provider(), 1'011U);
+    binding.PublishEvent(mapping, Sample(0x20U), Provider(), 1'027U);
   Require(post_restart.HasValue(), "publish after restart failed");
-  const auto restarted_frame = binding.PollEvent(mapping, Consumer(), 0U, 1'012U);
+  const auto restarted_frame = binding.PollEvent(mapping, Consumer(), 0U, 1'028U);
   Require(restarted_frame.HasValue(), "poll after restart failed");
   Require(
     restarted_frame.Value().provider_generation == 2U,
@@ -194,6 +330,12 @@ int main() {
   Require(
     ipc::ToString(ipc::QueuePolicy::kDropOldest) == std::string_view("DropOldest"),
     "queue policy text changed");
+  Require(
+    ipc::ToString(ipc::FrameType::kMethodResponse) == std::string_view("MethodResponse"),
+    "method response frame type text changed");
+  Require(
+    ipc::ToString(ipc::FrameType::kTrigger) == std::string_view("Trigger"),
+    "trigger frame type text changed");
   Require(
     ipc::ToString(ipc::DeliveryStatus::kBackpressure) == std::string_view("Backpressure"),
     "delivery status text changed");

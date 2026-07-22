@@ -299,6 +299,20 @@ std::string_view ToString(Operation operation) noexcept {
       return "SubscribeEvent";
     case Operation::kPublishEvent:
       return "PublishEvent";
+    case Operation::kCallMethod:
+      return "CallMethod";
+    case Operation::kCompleteMethod:
+      return "CompleteMethod";
+    case Operation::kGetField:
+      return "GetField";
+    case Operation::kSetField:
+      return "SetField";
+    case Operation::kSubscribeField:
+      return "SubscribeField";
+    case Operation::kSubscribeTrigger:
+      return "SubscribeTrigger";
+    case Operation::kFireTrigger:
+      return "FireTrigger";
     case Operation::kDiagnosticRead:
       return "DiagnosticRead";
     case Operation::kDiagnosticSecurityAccess:

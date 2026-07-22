@@ -24,12 +24,18 @@ Verification strategy: unit tests plus dashboard and bootstrap smoke paths.
 
 ## Communication Management
 
-Context diagram: ara com registry, SOME/IP binding, DDS binding, and local IPC boundary.
-Sequence diagram: model generation creates service types, then services register and discover.
+Context diagram: ara com registry, local IPC binding, SOME/IP binding, and DDS binding.
+Sequence diagram: model generation creates service types, then services register,
+discover, publish events, complete correlated methods, dispatch no-return methods,
+resolve generated method futures, fire payload-less triggers, and exchange field
+getter/setter/notifier updates.
 State machine: service records move through registered, available, and removed lifecycle.
 Trust boundary: generated model inputs are validated before runtime use.
 Deployment model: libraries and generated model artifacts are staged in the SDK package.
-Failure table: duplicate service, malformed model, and stale endpoint cases are tested.
+Failure table: duplicate service, malformed model, stale endpoint, method
+correlation, cancelled method futures, generated method error domains/codes,
+invalid fire-and-forget response, invalid trigger, and invalid field accessor
+cases are tested.
 Verification strategy: unit tests, golden vectors, and network-lab smoke evidence.
 
 ## Diagnostics Management

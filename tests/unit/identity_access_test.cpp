@@ -74,11 +74,23 @@ int main() {
   policy.remote_diagnostics_allowed = false;
   policy.default_decision = iam::Decision::kDeny;
   policy.rules.push_back(AllowRule(
-    {iam::Operation::kOfferService, iam::Operation::kPublishEvent},
+    {
+      iam::Operation::kOfferService,
+      iam::Operation::kPublishEvent,
+      iam::Operation::kSetField,
+      iam::Operation::kFireTrigger,
+    },
     {iam::ResourceKind::kService},
     {"ultrasonic-provider"}));
   policy.rules.push_back(AllowRule(
-    {iam::Operation::kFindService, iam::Operation::kSubscribeEvent},
+    {
+      iam::Operation::kFindService,
+      iam::Operation::kSubscribeEvent,
+      iam::Operation::kGetField,
+      iam::Operation::kSetField,
+      iam::Operation::kSubscribeField,
+      iam::Operation::kSubscribeTrigger,
+    },
     {iam::ResourceKind::kService},
     {"ultrasonic-consumer"}));
 
@@ -129,6 +141,57 @@ int main() {
     {.service = service, .event_name = "DistanceSample", .payload = {0x02U}});
   Require(sequence.HasValue(), "provider publish was denied");
   Require(registry.Poll(subscription.Value().id).HasValue(), "authorized sample missing");
+
+  Require(
+    !registry
+       .SetFieldAs(
+         intruder,
+         {.service = service, .field_name = "CalibrationMode", .payload = {0x01U}})
+       .HasValue(),
+    "intruder field set was allowed");
+  auto field_subscription = registry.SubscribeFieldAs(
+    consumer,
+    service,
+    "CalibrationMode",
+    2U);
+  Require(field_subscription.HasValue(), "consumer field subscription was denied");
+  auto provider_field = registry.SetFieldAs(
+    provider,
+    {.service = service, .field_name = "CalibrationMode", .payload = {0x02U}});
+  Require(provider_field.HasValue(), "provider field set was denied");
+  auto notified_field = registry.PollField(field_subscription.Value().id);
+  Require(notified_field.HasValue(), "authorized field notification missing");
+  auto read_field = registry.GetFieldAs(consumer, service, "CalibrationMode");
+  Require(read_field.HasValue(), "consumer field get was denied");
+  Require(read_field.Value() == provider_field.Value(), "authorized field get changed value");
+  auto consumer_field = registry.SetFieldAs(
+    consumer,
+    {.service = service, .field_name = "CalibrationMode", .payload = {0x03U}});
+  Require(consumer_field.HasValue(), "consumer field setter was denied");
+
+  Require(
+    !registry.SubscribeTriggerAs(intruder, service, "ObstacleCleared", 1U).HasValue(),
+    "intruder trigger subscription was allowed");
+  auto trigger_subscription = registry.SubscribeTriggerAs(
+    consumer,
+    service,
+    "ObstacleCleared",
+    1U);
+  Require(trigger_subscription.HasValue(), "consumer trigger subscription was denied");
+  Require(
+    !registry
+       .FireTriggerAs(intruder, {.service = service, .trigger_name = "ObstacleCleared"})
+       .HasValue(),
+    "intruder trigger fire was allowed");
+  auto trigger_activation = registry.FireTriggerAs(
+    provider,
+    {.service = service, .trigger_name = "ObstacleCleared"});
+  Require(trigger_activation.HasValue(), "provider trigger fire was denied");
+  auto notified_trigger = registry.PollTrigger(trigger_subscription.Value().id);
+  Require(notified_trigger.HasValue(), "authorized trigger activation missing");
+  Require(
+    notified_trigger.Value() == trigger_activation.Value(),
+    "authorized trigger activation changed");
 
   diag::DiagnosticManager denied_diagnostics;
   auto diagnostic_policy = policy;
@@ -233,6 +296,12 @@ int main() {
   Require(iam::ToString(iam::Operation::kDiagnosticClearDtc) ==
             std::string_view("DiagnosticClearDtc"),
           "IAM operation text changed");
+  Require(iam::ToString(iam::Operation::kSubscribeField) ==
+            std::string_view("SubscribeField"),
+          "IAM field operation text changed");
+  Require(iam::ToString(iam::Operation::kFireTrigger) ==
+            std::string_view("FireTrigger"),
+          "IAM trigger operation text changed");
 
   return 0;
 }
